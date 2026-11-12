@@ -1,0 +1,30 @@
+[
+  {
+    "filename": "pmfby_faq.html",
+    "source_url": "https://pmfby.gov.in/faq",
+    "bytes": 6842,
+    "sha256": "c5389968c63be8387b3636f33bc000ecb31585304a7b7dccde1a2ab5a10eaf50",
+    "recorded_at_utc": "2026-11-12T10:59:12.654701+00:00"
+  },
+  {
+    "filename": "revamped_ogs_final.pdf",
+    "source_url": "https://pmfby.gov.in/pdf/Revamped%20OGs_Final.pdf",
+    "bytes": 1729568,
+    "sha256": "5c54a97fa868ece812473eb52fbbf56a93cda43a2dc2423cbf434547a6d1139f",
+    "recorded_at_utc": "2026-11-12T10:59:12.690985+00:00"
+  },
+  {
+    "filename": "revised_operational_guidelines.pdf",
+    "source_url": "https://pmfby.gov.in/pdf/Revised_Operational_Guidelines.pdf",
+    "bytes": 1233411,
+    "sha256": "3c663bae70fa3a02bc4b8549a436ea5df2b0b55fc17d9efe3965fdde58b18685",
+    "recorded_at_utc": "2026-11-12T10:59:12.733229+00:00"
+  },
+  {
+    "filename": "revamped_guidelines_2020.pdf",
+    "source_url": "https://pmfby.gov.in/pdf/Revamped%20Operational%20Guidelines_17th%20August%202020.pdf",
+    "bytes": 9871316,
+    "sha256": "fc57c66ee9a275309bdcf84a81398376075bdd8657d026c673ef363a3a7616f8",
+    "recorded_at_utc": "2026-11-12T10:59:12.799751+00:00"
+  }
+]

@@ -1,1 +1,6 @@
-.venv/\n__pycache__/\n*.py[cod]\n.env\ndata/raw/\n.pytest_cache/\n
+.venv/
+__pycache__/
+*.py[cod]
+.env
+.pytest_cache/
+data/raw/revamped_guidelines_2020.pdf

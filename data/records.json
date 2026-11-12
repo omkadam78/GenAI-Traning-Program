@@ -1,182 +1,191 @@
 [
   {
     "id": 1,
-    "rule_topic": "Crop categories",
-    "rule_text": "PMFBY FAQ lists food crops (cereals, millets and pulses), oilseeds, and annual commercial/annual horticultural crops.",
-    "og_version": "FAQ; verify current season notification",
-    "applies_to": "Notified crops vary by state and season",
-    "deadline_or_rate": "Not applicable",
-    "source_url": "https://pmfby.gov.in/faq"
+    "rule_topic": "Voluntary enrolment (Kharif 2020 onwards)",
+    "rule_text": "3.1.1.1 The scheme is optional for all farmers including farmers who have been sanctioned short-term Seasonal Agricultural Operations (SAO) loans/Kisan Credit Card (KCC) for the notified crops from defined FIs (hereinafter referred to as Loanee farmers). Existing Loanee farmers who do not want to get covered under the scheme have the option of opting -out...",
+    "og_version": "Revamped OG (Kharif 2020), Para 3.1.1.1",
+    "applies_to": "All loanee (KCC) and non-loanee farmers",
+    "deadline_or_rate": "Opt-out at least 7 days before enrolment cut-off",
+    "source_url": "https://pmfby.gov.in/pdf/Revamped%20OGs_Final.pdf"
   },
   {
     "id": 2,
-    "rule_topic": "Sum insured formula",
-    "rule_text": "Individual farmer sum insured is Scale of Finance per hectare multiplied by insured area of the notified crop; area is expressed in hectares.",
-    "og_version": "FAQ; verify current state notification",
-    "applies_to": "Notified crop and area",
-    "deadline_or_rate": "Scale of Finance × area in hectares",
-    "source_url": "https://pmfby.gov.in/faq"
+    "rule_topic": "Crop categories covered",
+    "rule_text": "4. Coverage of Crops I. Food crops (Cereals, Millets and Pulses), II. Oilseeds III. Annual Commercial / Annual Horticultural crops. IV. In addition, pilots for coverage can be taken for those perennial horticultural/commercial crops for which standard methodology for yield estimation is available.",
+    "og_version": "Revamped OG (Kharif 2020), Para 4",
+    "applies_to": "Notified crops per state/season notification",
+    "deadline_or_rate": "Food crops, oilseeds, annual commercial/horticultural",
+    "source_url": "https://pmfby.gov.in/pdf/Revamped%20OGs_Final.pdf"
   },
   {
     "id": 3,
-    "rule_topic": "Kharif premium cap",
-    "rule_text": "FAQ states farmer share is 2% of sum insured or actuarial premium rate, whichever is less, for Kharif foodgrain and oilseed crops.",
-    "og_version": "FAQ; verify current rules",
-    "applies_to": "Kharif foodgrain and oilseed crops",
-    "deadline_or_rate": "2% of SI or actuarial rate, whichever is less",
-    "source_url": "https://pmfby.gov.in/faq"
+    "rule_topic": "Basic cover (standing crop yield loss)",
+    "rule_text": "5.1 Basic Cover: The basic cover under t he scheme covers the risk of loss of yield to standing crop (sowing to harvesting).This c omprehensive risk insurance is provided to cover yield losses on an area based approach basis due to non-preventable risks like drought, dry spells, flood, inundation, wide spread pest and disease attack, landslides, natural...",
+    "og_version": "Revamped OG (Kharif 2020), Para 5.1",
+    "applies_to": "Standing crops from sowing to harvesting (area approach)",
+    "deadline_or_rate": "Non-preventable natural perils",
+    "source_url": "https://pmfby.gov.in/pdf/Revamped%20OGs_Final.pdf"
   },
   {
     "id": 4,
-    "rule_topic": "Rabi premium cap",
-    "rule_text": "FAQ states farmer share is 1.5% of sum insured or actuarial premium rate, whichever is less, for Rabi foodgrain and oilseed crops.",
-    "og_version": "FAQ; verify current rules",
-    "applies_to": "Rabi foodgrain and oilseed crops",
-    "deadline_or_rate": "1.5% of SI or actuarial rate, whichever is less",
-    "source_url": "https://pmfby.gov.in/faq"
+    "rule_topic": "Prevented sowing / planting risk",
+    "rule_text": "5.2.1 Prevented Sowing /Planting/Germination Risk : Insured area is prevented from sowing/ planting/germination due to deficit rainfall or adverse seasonal/climatic conditions. 21.3.2.7 The amount payable would be 25% of the gross total Sum Insured and the insurance coverage shall get terminated. Farmers can have the alternative to sow shorter...",
+    "og_version": "Revamped OG (Kharif 2020), Para 5.2.1 & 21.3.2.7",
+    "applies_to": "Notified area (>75% prevented from sowing)",
+    "deadline_or_rate": "25% of Sum Insured; cover terminates",
+    "source_url": "https://pmfby.gov.in/pdf/Revamped%20OGs_Final.pdf"
   },
   {
     "id": 5,
-    "rule_topic": "Commercial crop premium cap",
-    "rule_text": "FAQ states farmer share is 5% of sum insured or actuarial premium rate, whichever is less, for annual commercial/annual horticultural crops.",
-    "og_version": "FAQ; verify current rules",
-    "applies_to": "Annual commercial/horticultural crops",
-    "deadline_or_rate": "5% of SI or actuarial rate, whichever is less",
-    "source_url": "https://pmfby.gov.in/faq"
+    "rule_topic": "Mid-season adversity relief",
+    "rule_text": "5.2.2 Mid-Season Adversity: Loss in case of adverse seasonal conditions during the crop season viz. floods, prolonged dry s pells and severe drought etc., wherein expected yield during the... 21.4.2.7 Amount payable would be 25% of the likely claims, subject to adjustment against final claims based on yield assessment data arrived through...",
+    "og_version": "Revamped OG (Kharif 2020), Para 5.2.2 & 21.4.2.7",
+    "applies_to": "Notified unit when expected yield < 50% of normal",
+    "deadline_or_rate": "25% of likely claims (on-account within 30 days)",
+    "source_url": "https://pmfby.gov.in/pdf/Revamped%20OGs_Final.pdf"
   },
   {
     "id": 6,
-    "rule_topic": "Prevented sowing",
-    "rule_text": "FAQ describes cover when the majority of insured farmers in a notified area, who intended to sow and incurred expenditure, are prevented from sowing by adverse weather.",
-    "og_version": "FAQ; check applicable guidelines",
-    "applies_to": "Notified area and crop; conditions apply",
-    "deadline_or_rate": "Up to 25% of SI as stated in FAQ",
-    "source_url": "https://pmfby.gov.in/faq"
+    "rule_topic": "Post-harvest losses (14-day drying window)",
+    "rule_text": "5.2.3 Post-Harvest Losses: Coverage is available only up to a maximum period of two weeks from harvesting, for those crops which are required to be dried in cut and spread / small bundled condition depending on requirement of the crops in that area, in the field after harvesting against specific perils of hailstorm, cyclone, cyclonic rains and unseasonal...",
+    "og_version": "Revamped OG (Kharif 2020), Para 5.2.3 & 21.6.2.3",
+    "applies_to": "Harvested crops in cut-and-spread / small bundled condition",
+    "deadline_or_rate": "Up to 2 weeks (14 days) from harvest",
+    "source_url": "https://pmfby.gov.in/pdf/Revamped%20OGs_Final.pdf"
   },
   {
     "id": 7,
-    "rule_topic": "Post-harvest window",
-    "rule_text": "FAQ describes cover for harvested crops left in cut-and-spread condition to dry in the field, up to 14 days after harvest.",
-    "og_version": "FAQ; see revised guidelines",
-    "applies_to": "Eligible insured crop in field-drying condition",
-    "deadline_or_rate": "Up to 14 days, subject to conditions",
-    "source_url": "https://pmfby.gov.in/faq"
+    "rule_topic": "Localized calamities (hailstorm, landslide, inundation)",
+    "rule_text": "5.2.4 Localized Calamities : Loss/damage to notified insured crops resulting from occurrence of identified localized risks of hailstorm, landslide, inundation, cloud burst and natural fire due to lightening affecting isolated farms in the notified area.",
+    "og_version": "Revamped OG (Kharif 2020), Para 5.2.4 & 21.5.1",
+    "applies_to": "Isolated insured farms in notified area (e.g. hailstorm)",
+    "deadline_or_rate": "Individual farm-level loss assessment",
+    "source_url": "https://pmfby.gov.in/pdf/Revamped%20OGs_Final.pdf"
   },
   {
     "id": 8,
-    "rule_topic": "Post-harvest perils",
-    "rule_text": "FAQ identifies cyclone/cyclonic rains and unseasonal rains for post-harvest loss cover.",
-    "og_version": "FAQ; revised guidelines",
-    "applies_to": "Post-harvest crop in eligible drying condition",
-    "deadline_or_rate": "Specified perils only",
-    "source_url": "https://pmfby.gov.in/pdf/Revised_Operational_Guidelines.pdf"
+    "rule_topic": "Wild animal crop loss add-on",
+    "rule_text": "5.2.5 Add-on coverage for crop loss due to attack by wild animals: The States may consider providing add-on coverage for crop loss due to the attack by wild animals wherever the risk is perceived to be substantial and is identifiable. The detailed protocol and procedure for evaluation of the bids has been prepared by the GOI in consultation with the...",
+    "og_version": "Revamped OG (Kharif 2020), Para 5.2.5",
+    "applies_to": "Areas where state notifies wild animal attack add-on",
+    "deadline_or_rate": "Optional farmer add-on cover",
+    "source_url": "https://pmfby.gov.in/pdf/Revamped%20OGs_Final.pdf"
   },
   {
     "id": 9,
-    "rule_topic": "Localized calamities",
-    "rule_text": "FAQ describes individual-farm cover for identified localized risks such as hailstorm, landslide and inundation affecting isolated farms in a notified area.",
-    "og_version": "FAQ; verify state notification",
-    "applies_to": "Insured notified crop and area",
-    "deadline_or_rate": "Applicable reporting timeline must be checked",
-    "source_url": "https://pmfby.gov.in/faq"
+    "rule_topic": "General exclusions",
+    "rule_text": "5.4 General Exclusions: Losses arising out of war and nuclear risks, malicious damage and other preventable risks shall be excluded.",
+    "og_version": "Revamped OG (Kharif 2020), Para 5.4",
+    "applies_to": "All PMFBY policies",
+    "deadline_or_rate": "War, nuclear risks, malicious damage, preventable risks excluded",
+    "source_url": "https://pmfby.gov.in/pdf/Revamped%20OGs_Final.pdf"
   },
   {
     "id": 10,
-    "rule_topic": "Yield-loss risks",
-    "rule_text": "FAQ lists natural fire/lightning, storms/hailstorm/cyclone, flood/inundation/landslide, drought/dry spells and pests/diseases.",
-    "og_version": "FAQ; check exclusions and notification",
-    "applies_to": "Standing crops on notified-area basis",
-    "deadline_or_rate": "Not applicable",
-    "source_url": "https://pmfby.gov.in/faq"
+    "rule_topic": "Kharif foodgrain and oilseed premium cap",
+    "rule_text": "Maximum Premium Rate payable by farmer (% of Sum Insured): Kharif All Food grain and Oilseeds crops (all Cereals, Millets, Pulses and Oilseeds crops) 2.0% of SI or Actuarial rate, whichever is less",
+    "og_version": "Revamped OG (Kharif 2020), Para 13.1 Table 1",
+    "applies_to": "Kharif cereals, millets, pulses, and oilseeds (e.g. soybean)",
+    "deadline_or_rate": "2.0% of Sum Insured or actuarial rate, whichever is less",
+    "source_url": "https://pmfby.gov.in/pdf/Revamped%20OGs_Final.pdf"
   },
   {
     "id": 11,
-    "rule_topic": "Exclusions",
-    "rule_text": "FAQ lists war and kindred perils, nuclear risks, riots, malicious damage, theft, act of enmity, animal damage and other preventable risks.",
-    "og_version": "FAQ; verify full current wording",
-    "applies_to": "Scheme exclusions; facts and policy conditions matter",
-    "deadline_or_rate": "Not applicable",
-    "source_url": "https://pmfby.gov.in/faq"
+    "rule_topic": "Rabi foodgrain and oilseed premium cap",
+    "rule_text": "Maximum Premium Rate payable by farmer (% of Sum Insured): Rabi All Food grain and Oilseeds crops (all Cereals, Millets, Pulses and Oilseeds) 1.5% of SI or Actuarial rate, whichever is less",
+    "og_version": "Revamped OG (Kharif 2020), Para 13.1 Table 1",
+    "applies_to": "Rabi cereals, millets, pulses, and oilseeds (e.g. wheat, gram)",
+    "deadline_or_rate": "1.5% of Sum Insured or actuarial rate, whichever is less",
+    "source_url": "https://pmfby.gov.in/pdf/Revamped%20OGs_Final.pdf"
   },
   {
     "id": 12,
-    "rule_topic": "Post-harvest loss intimation",
-    "rule_text": "Revised Operational Guidelines section 21.4.3.1 says immediate intimation within 72 hours for the described post-harvest loss process.",
-    "og_version": "Revised Operational Guidelines, section 21.4.3.1",
-    "applies_to": "Cited post-harvest loss process; do not generalize to all claims",
-    "deadline_or_rate": "Within 72 hours in cited provision",
-    "source_url": "https://pmfby.gov.in/pdf/Revised_Operational_Guidelines.pdf"
+    "rule_topic": "Commercial and horticultural premium cap",
+    "rule_text": "Maximum Premium Rate payable by farmer (% of Sum Insured): Annual Commercial/ Annual Horticultural crops 5% of SI or Actuarial rate, whichever is less Perennial horticultural/commercial crops (pilot basis) 5% of SI or Actuarial rate, whichever is less",
+    "og_version": "Revamped OG (Kharif 2020), Para 13.1 Table 1",
+    "applies_to": "Kharif and Rabi annual commercial/horticultural crops (e.g. cotton)",
+    "deadline_or_rate": "5% of Sum Insured or actuarial rate, whichever is less",
+    "source_url": "https://pmfby.gov.in/pdf/Revamped%20OGs_Final.pdf"
   },
   {
     "id": 13,
-    "rule_topic": "Post-harvest reporting channels",
-    "rule_text": "Guidelines list insurer, concerned bank, local agriculture department/government or district officials, toll-free number, or NCIP for the cited process.",
-    "og_version": "Revised Operational Guidelines, section 21.4.3.2",
-    "applies_to": "Cited post-harvest loss process",
-    "deadline_or_rate": "Within applicable 72-hour window",
-    "source_url": "https://pmfby.gov.in/pdf/Revised_Operational_Guidelines.pdf"
+    "rule_topic": "Sum insured and Scale of Finance formula",
+    "rule_text": "17.5.2 For insurance cover age of a farmer, S um Insured amount for a notified crop will be noti fied and uploaded on the NCIP for the concerned notified crop and season by the State /UT. The total Sum Insured of loanee farmer for the season shall be calculated accordingly. The cut-off date for coverage shall solely...",
+    "og_version": "Revamped OG (Kharif 2020), Para 17.5.2 & 17.5.6",
+    "applies_to": "Loanee and non-loanee insured crop acreage in hectares",
+    "deadline_or_rate": "Sum Insured = Scale of Finance per ha x insured area (ha)",
+    "source_url": "https://pmfby.gov.in/pdf/Revamped%20OGs_Final.pdf"
   },
   {
     "id": 14,
-    "rule_topic": "Official helpline",
-    "rule_text": "PMFBY portal homepage displays Krishi Rakshak Portal & Helpline 14447 for grievances and crop-loss reporting.",
-    "og_version": "Portal homepage",
-    "applies_to": "Grievance support and crop-loss reporting guidance",
-    "deadline_or_rate": "14447; confirm current service details",
-    "source_url": "https://pmfby.gov.in/"
+    "rule_topic": "Claim intimation timeline (72 hours)",
+    "rule_text": "21.5.4.1 Time and method of reporting the loss/claims A. Immediate intimation (within 72 hours) by the insured farmer as detailed in Para 21.6.4.2 below. B. Intimation must contain details of insured farmer’s name, affected survey number -wise insured crop and acreage affected, Farmer’s Application No as on NCIP, his/her Mobile Number etc. KCC A/c No. (in...",
+    "og_version": "Revamped OG (Kharif 2020), Para 21.5.4.1 & 35.9.4",
+    "applies_to": "Localized calamities and post-harvest losses",
+    "deadline_or_rate": "Within 72 hours of loss occurrence",
+    "source_url": "https://pmfby.gov.in/pdf/Revamped%20OGs_Final.pdf"
   },
   {
     "id": 15,
-    "rule_topic": "Notified crop and area",
-    "rule_text": "Whether a crop is eligible in a farmer's location depends on the crop and area notified by the state for that season.",
-    "og_version": "Operational principle; check current notification",
-    "applies_to": "Specific state, district/insurance unit, crop and season",
-    "deadline_or_rate": "Season-specific",
-    "source_url": "https://pmfby.gov.in/"
+    "rule_topic": "Loss reporting channels",
+    "rule_text": "21.5.4.2 Channel of reporting i.e. Whom to be reported: Intimation may be given within 72 hours by the farmer either directly, the “Crop Insurance App”, dedicated toll-free number, Centralized Call Centre number of concerned Insurance Company. The intimation may also be forwarded through the concerned bank branch, local agriculture department...",
+    "og_version": "Revamped OG (Kharif 2020), Para 21.5.4.2",
+    "applies_to": "Farmers reporting localized calamity or post-harvest loss",
+    "deadline_or_rate": "Crop Insurance App, Centralized Toll-Free (14447), insurer, bank, agri office",
+    "source_url": "https://pmfby.gov.in/pdf/Revamped%20OGs_Final.pdf"
   },
   {
     "id": 16,
-    "rule_topic": "Historical enrolment date",
-    "rule_text": "FAQ page contains a Kharif 2016 last-date entry. It is historical and must not be used as a current deadline.",
-    "og_version": "Historical FAQ entry",
-    "applies_to": "Kharif 2016 only; current deadline is season/state-specific",
-    "deadline_or_rate": "Do not use as current deadline",
-    "source_url": "https://pmfby.gov.in/faq"
+    "rule_topic": "Bank and official forwarding timeline (48 hours)",
+    "rule_text": "21.5.4.4 In case the intimation has been through the concerned bank branch or Government officials, the concerned IC should be informed within the next 48 hours.",
+    "og_version": "Revamped OG (Kharif 2020), Para 21.5.4.4 & 21.6.3.4",
+    "applies_to": "Bank branch or district/agriculture officials forwarding intimation",
+    "deadline_or_rate": "Within next 48 hours of receiving farmer intimation",
+    "source_url": "https://pmfby.gov.in/pdf/Revamped%20OGs_Final.pdf"
   },
   {
     "id": 17,
-    "rule_topic": "Scale of Finance",
-    "rule_text": "FAQ says Scale of Finance is decided by the District Level Technical Committee and pre-declared/notified by the state-level committee.",
-    "og_version": "FAQ; verify current notified value",
-    "applies_to": "Specific crop and notified area/season",
-    "deadline_or_rate": "Use official notified Scale of Finance",
-    "source_url": "https://pmfby.gov.in/faq"
+    "rule_topic": "Intimation form completion timeline",
+    "rule_text": "21.5.5.1 Duly filled intimation form along with all relevant documents is necessary for initiation of loss assessment and payment of claims.However, if information on all the columns is not readily available, semi-filled form may be sent to the Insurance Company and later within 7days of the loss, the form with complete details may be submitted.",
+    "og_version": "Revamped OG (Kharif 2020), Para 21.5.5.1 & 21.6.4.1",
+    "applies_to": "Farmers submitting semi-filled claim intimation form",
+    "deadline_or_rate": "Complete details within 7 days of loss",
+    "source_url": "https://pmfby.gov.in/pdf/Revamped%20OGs_Final.pdf"
   },
   {
     "id": 18,
-    "rule_topic": "Area unit",
-    "rule_text": "FAQ says area under cultivation for sum-insured calculation is expressed in hectares.",
-    "og_version": "FAQ",
-    "applies_to": "Sum-insured calculation",
-    "deadline_or_rate": "Convert area to hectares",
-    "source_url": "https://pmfby.gov.in/faq"
+    "rule_topic": "Claim payout and branch beneficiary display",
+    "rule_text": "29.2.4 After the finalization of the claim amount from the concerned ICs, the same will be shared with the financial institutions/banks . They should display the list of the beneficiaries/details of claims (both loanee and non -loanee) on the notice board of the branch within seven days with the details of beneficiaries like Name of farmers/beneficiaries...",
+    "og_version": "Revamped OG (Kharif 2020), Para 29.2.3 & 29.2.4",
+    "applies_to": "Direct benefit transfer to eligible farmers & bank branches",
+    "deadline_or_rate": "Branch displays beneficiary list within 7 days",
+    "source_url": "https://pmfby.gov.in/pdf/Revamped%20OGs_Final.pdf"
   },
   {
     "id": 19,
-    "rule_topic": "Bank forwarding timeline",
-    "rule_text": "2020 Revamped Guidelines table says bank branch or government officials should forward farmer intimation to insurer within next 48 hours.",
-    "og_version": "Revamped Operational Guidelines, 17 Aug 2020",
-    "applies_to": "Cited 2020 process; confirm later amendments",
-    "deadline_or_rate": "Within 48 hours of receipt",
-    "source_url": "https://pmfby.gov.in/pdf/Revamped%20Operational%20Guidelines_17th%20August%202020.pdf"
+    "rule_topic": "Grievance redressal committees (DGRC & SGRC)",
+    "rule_text": "30.4 State Level Grievance Red ressal Committee (SGRC): States/UTs may also nominate the State level Grievance Redressal Officers at the rank of Deputy Secretary/Director to register and dispose off grievances not in the purview of direct registration by the District Level Grievance Officer. The State shall also constitute a State Level G rievance Redressal...",
+    "og_version": "Revamped OG (Kharif 2020), Para 30.3-30.6",
+    "applies_to": "Unresolved farmer, bank, or insurer disputes",
+    "deadline_or_rate": "DGRC discussion within 7 days; appeal to SGRC within 15 days",
+    "source_url": "https://pmfby.gov.in/pdf/Revamped%20OGs_Final.pdf"
   },
   {
     "id": 20,
-    "rule_topic": "Claim payment timeline",
-    "rule_text": "2020 Revamped Guidelines table describes payment within 15 days from receipt of loss assessment report, subject to advance first instalment of central and state subsidy.",
-    "og_version": "Revamped Operational Guidelines, 17 Aug 2020",
-    "applies_to": "Cited process and subsidy condition; confirm later amendments",
-    "deadline_or_rate": "15 days subject to stated condition",
-    "source_url": "https://pmfby.gov.in/pdf/Revamped%20Operational%20Guidelines_17th%20August%202020.pdf"
+    "rule_topic": "Version evolution: 2016 vs Revised/Revamped intimation",
+    "rule_text": "Earlier 2016 Operational Guidelines required 48-hour farmer loss intimation, which was expanded to 72 hours for farmers in Revised & Revamped OGs while retaining 48 hours for bank/official forwarding: 21.4.3.2 Channel of reporting, i.e. Whom to be reported: Intimatio n may be given within 72 hours by farmer either directly to the insurance company, concerned bank, local agriculture department Govt./district officials...",
+    "og_version": "Revised OG (Para 21.4.3.2) vs 2016 OG & Revamped OG (Para 21.5.4.2)",
+    "applies_to": "Comparing 2016 48-hour rule against current 72-hour farmer rule",
+    "deadline_or_rate": "2016 OG: 48 hours -> Revised/Revamped OG: 72 hours (farmer)",
+    "source_url": "https://pmfby.gov.in/pdf/Revised_Operational_Guidelines.pdf"
+  },
+  {
+    "id": 21,
+    "rule_topic": "Official portal and live claim status scope",
+    "rule_text": "Pradhan Mantri Fasal Bima Yojana - Crop Insurance | PMFBY - Crop Insurance - Pradhan Mantri Fasal Bima Yojana (PMFBY) is the government sponsored crop insurance scheme that integrates multiple stakeholders on a single platform. Static guidelines explain scheme rules and deadlines; individual farmer claim approval status is not stored here and must be checked on NCIP / pmfby.gov.in.",
+    "og_version": "Official PMFBY Portal (pmfby.gov.in/faq)",
+    "applies_to": "Individual claim status & live season notifications",
+    "deadline_or_rate": "Check pmfby.gov.in / NCIP or Helpline 14447",
+    "source_url": "https://pmfby.gov.in/faq"
   }
 ]
