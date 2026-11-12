@@ -1,0 +1,83 @@
+[
+  {
+    "id": "Q1",
+    "question": "What premium do I pay for soybean crop insurance in kharif?",
+    "from_project_card": true,
+    "answerable_from_data": true,
+    "expected_topic": "Kharif foodgrain and oilseed premium cap",
+    "notes": "Soybean is a Kharif oilseed crop; farmer share is capped at 2.0% of Sum Insured or actuarial rate, whichever is less."
+  },
+  {
+    "id": "Q2",
+    "question": "Is hailstorm damage covered for my individual farm?",
+    "from_project_card": true,
+    "answerable_from_data": true,
+    "expected_topic": "Localized calamities (hailstorm, landslide, inundation)",
+    "notes": "Yes, hailstorm is covered as an individual farm-level localized calamity when notified by the state and reported within 72 hours."
+  },
+  {
+    "id": "Q3",
+    "question": "How many days after harvest are cut-and-spread crops covered for unseasonal rain?",
+    "from_project_card": true,
+    "answerable_from_data": true,
+    "expected_topic": "Post-harvest losses (14-day drying window)",
+    "notes": "Up to 2 weeks (14 days) from harvesting for crops left in cut-and-spread / small bundled condition in the field."
+  },
+  {
+    "id": "Q4",
+    "question": "Hailstorm hit my 1.2 ha soybean at 9 pm yesterday. By when must I inform, through which channels, and what premium did I pay if the scale of finance is Rs 49,000 per ha?",
+    "from_project_card": true,
+    "answerable_from_data": true,
+    "expected_topic": "Claim intimation timeline (72 hours), Loss reporting channels, Kharif premium cap & Sum Insured",
+    "notes": "Intimate within 72 hours via Crop Insurance App, helpline 14447/insurer call centre, bank, or agriculture office. Sum Insured = 49,000 x 1.2 = Rs 58,800; 2% Kharif oilseed premium = Rs 1,176."
+  },
+  {
+    "id": "Q5",
+    "question": "How did the claim intimation time change between the 2016 guidelines and the revamped guidelines?",
+    "from_project_card": true,
+    "answerable_from_data": true,
+    "expected_topic": "Version evolution: 2016 vs Revised/Revamped intimation",
+    "notes": "Farmer intimation window expanded from 48 hours in the 2016 OG to 72 hours in Revised & Revamped OGs; bank/official forwarding remains 48 hours."
+  },
+  {
+    "id": "Q6",
+    "question": "Has my PMFBY claim for kharif 2025 been approved?",
+    "from_project_card": true,
+    "answerable_from_data": false,
+    "expected_topic": "Unanswerable - personal live claim status",
+    "notes": "Must always return an honest 'I don't know' and direct the farmer to pmfby.gov.in (NCIP), Crop Insurance App, or Helpline 14447."
+  },
+  {
+    "id": "Q7",
+    "question": "Is PMFBY crop insurance compulsory for farmers who have a Kisan Credit Card (KCC) loan?",
+    "from_project_card": false,
+    "answerable_from_data": true,
+    "expected_topic": "Voluntary enrolment (Kharif 2020 onwards)",
+    "notes": "From Kharif 2020 onwards, PMFBY is optional for all farmers including loanee/KCC farmers; opt-out must be submitted at least 7 days before cut-off."
+  },
+  {
+    "id": "Q8",
+    "question": "What happens if deficit rainfall prevents farmers in my village from sowing at the start of the season?",
+    "from_project_card": false,
+    "answerable_from_data": true,
+    "expected_topic": "Prevented sowing / planting risk",
+    "notes": "If >75% of notified area is prevented from sowing/germination, insured farmers may receive up to 25% of Sum Insured and cover terminates."
+  },
+  {
+    "id": "Q9",
+    "question": "Are losses due to war, nuclear risks, or malicious damage covered under PMFBY?",
+    "from_project_card": false,
+    "answerable_from_data": true,
+    "expected_topic": "General exclusions",
+    "notes": "No, Para 5.4 excludes war, nuclear risks, malicious damage, and other preventable risks."
+  },
+  {
+    "id": "Q10",
+    "question": "If my bank or insurer does not resolve my crop insurance dispute, where can I escalate a grievance?",
+    "from_project_card": false,
+    "answerable_from_data": true,
+    "expected_topic": "Grievance redressal committees (DGRC & SGRC)",
+    "notes": "Raise with insurer call centre / tehsil cell / District Level Grievance Redressal Committee (DGRC, 7 days), with appeal to State Level Grievance Redressal Committee (SGRC) within 15 days."
+  }
+]
+
