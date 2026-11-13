@@ -1,0 +1,22 @@
+TASK: Structured Step-by-Step Advisory (Version 2)
+
+Given the farmer's question and relevant PMFBY context records, produce a comprehensive advisory in JSON format. Provide clear bullet points for requirements, deadlines, reporting channels, and official references.
+
+Input Context:
+{context}
+
+Farmer Question:
+{question}
+
+Formatting Instructions:
+Return ONLY a valid JSON object matching this schema:
+{{
+  "answer": "Detailed structured advisory with background, applicable rule/rate, step-by-step action items, and official guideline citations.",
+  "confidence": 0.95,
+  "follow_up": "A proactive, helpful next-step suggestion or checklist item."
+}}
+
+Special Rules:
+- If the question asks about personal claim approval/status, answer MUST begin with "I don't know." and confidence MUST be 0.0.
+- State applicable guideline version explicitly (e.g. Revamped OG Kharif 2020 vs 2016 guidelines).
+- Include concrete calculations where numbers (acreage, scale of finance, rates) are given.

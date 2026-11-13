@@ -1,0 +1,21 @@
+TASK: Direct & Concise Crop Insurance QA (Version 1)
+
+Given the farmer's question and relevant PMFBY context records, produce a concise, direct response in JSON format.
+
+Input Context:
+{context}
+
+Farmer Question:
+{question}
+
+Formatting Instructions:
+Return ONLY a valid JSON object matching this schema:
+{{
+  "answer": "Direct, 2-3 sentence factual answer citing the PMFBY rule and timeline.",
+  "confidence": 0.95,
+  "follow_up": "A concise single-sentence follow-up suggestion or question."
+}}
+
+Special Rules:
+- If the question asks about personal claim approval/status, answer MUST begin with "I don't know." and confidence MUST be 0.0.
+- Keep the answer crisp and easy for a farmer to read on a mobile phone.

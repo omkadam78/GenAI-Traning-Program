@@ -1,9 +1,10 @@
-"""FastAPI service for FasalBima Sathi (Day 4)."""
+"""FastAPI service for FasalBima Sathi (Days 4–6)."""
 import re
 
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from app.llm import generate_chat_response
 from app.records import get_by_id, load_records
 from app.smart_search import smart_search
 
@@ -23,13 +24,23 @@ OUT_OF_SCOPE_PATTERNS = (
 
 app = FastAPI(
     title="FasalBima Sathi API",
-    description="PMFBY crop insurance rule assistant powered by official guidelines.",
-    version="0.4.0",
+    description="PMFBY crop insurance rule and LLM assistant powered by official guidelines.",
+    version="0.6.0",
 )
 
 
 class QuestionRequest(BaseModel):
     question: str = Field(..., min_length=1, description="Farmer crop insurance question")
+    top_k: int = Field(default=3, ge=1, le=10)
+
+
+class ChatRequest(BaseModel):
+    message: str = Field(..., min_length=1, description="Farmer message or inquiry")
+    prompt_version: str = Field(
+        default="v2",
+        pattern="^(v1|v2)$",
+        description="Prompt version: 'v1' (concise) or 'v2' (detailed structured)",
+    )
     top_k: int = Field(default=3, ge=1, le=10)
 
 
@@ -135,3 +146,14 @@ def ask_question(payload: QuestionRequest):
         "disclaimer": DISCLAIMER,
     }
 
+
+@app.post("/chat")
+def chat(payload: ChatRequest):
+    """Day 6 endpoint: returns JSON with answer, confidence, and follow_up."""
+    response = generate_chat_response(
+        question=payload.message,
+        prompt_version=payload.prompt_version,
+        top_k=payload.top_k,
+    )
+    response["disclaimer"] = DISCLAIMER
+    return response
