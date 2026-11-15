@@ -30,6 +30,8 @@ OUT_OF_SCOPE_PATTERNS = (
     r"\bhas\s+my\b.*\bapproved\b",
     r"\bpolicy\s+status\b",
     r"\bcredit(?:ed)?\s+to\s+my\s+bank\b",
+    r"\b(?:compensation|payment|money|amount)\b.*\b(?:reached|account|bank|sbi)\b",
+    r"\bcheck\s+if\s+my\b",
 )
 
 
@@ -230,3 +232,4 @@ def generate_chat_response(
         "provider": provider,
         "model": model,
     }
+

@@ -13,7 +13,6 @@ BRANCH = "main"
 API_BASE = f"https://api.github.com/repos/{USERNAME}/{REPO}"
 ROOT = Path(__file__).resolve().parent
 
-# Define all day stages in order
 ALL_STAGES = [
     {
         "id": "day-03",
@@ -73,6 +72,36 @@ ALL_STAGES = [
             "push_to_github.py",
         ],
     },
+    {
+        "id": "day-07",
+        "message": "day-07: add document chunking, semantic embedding, Chroma vectorstore, and search evaluation",
+        "tag": None,
+        "files": [
+            "app/chunking.py",
+            "app/embed.py",
+            "app/vectorstore.py",
+            "eval/search_results.md",
+            "app/main.py",
+        ],
+    },
+    {
+        "id": "day-08",
+        "message": "day-08: add RAG ask endpoint, 15-question evaluation suite, run_eval script, and winner table",
+        "tag": None,
+        "files": [
+            "app/rag.py",
+            "app/llm.py",
+            "app/main.py",
+            "eval/eval_set.json",
+            "eval/run_eval.py",
+            "eval/rag_compare.json",
+            "README.md",
+            "requirements.txt",
+            ".gitignore",
+            "tests/test_api.py",
+            "push_to_github.py",
+        ],
+    },
 ]
 
 
@@ -123,7 +152,7 @@ def validate_stages(stages: list[dict]) -> None:
 
 def get_pending_stages(token: str, target_stage_id: str | None = None) -> list[dict]:
     headers = _headers(token)
-    r = requests.get(f"{API_BASE}/commits?per_page=20", headers=headers, timeout=30)
+    r = requests.get(f"{API_BASE}/commits?per_page=30", headers=headers, timeout=30)
     r.raise_for_status()
     existing_messages = [c["commit"]["message"].splitlines()[0] for c in r.json()]
 
@@ -212,7 +241,7 @@ def push_stages(token: str, stages: list[dict]) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Push verified Day work to GitHub.")
-    parser.add_argument("--stage", type=str, default=None, help="Stage ID to push (e.g. day-06).")
+    parser.add_argument("--stage", type=str, default=None, help="Stage ID to push (e.g. day-07, day-08).")
     parser.add_argument("--dry-run", action="store_true", help="Verify stage files without pushing.")
     args = parser.parse_args()
 

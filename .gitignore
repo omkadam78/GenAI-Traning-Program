@@ -4,3 +4,5 @@ __pycache__/
 .env
 .pytest_cache/
 data/raw/revamped_guidelines_2020.pdf
+data/chroma_db/
+data/chunks/

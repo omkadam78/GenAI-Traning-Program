@@ -1,0 +1,123 @@
+[
+  {
+    "id": "Q1",
+    "question": "What premium do I pay for soybean crop insurance in kharif?",
+    "expected_keywords": ["2.0%", "2%", "oilseed", "kharif", "sum insured"],
+    "is_answerable": true,
+    "expected_source": "revamped_ogs_final.pdf",
+    "notes": "Kharif foodgrains and oilseeds farmer share cap is 2.0%."
+  },
+  {
+    "id": "Q2",
+    "question": "Is hailstorm damage covered for my individual farm?",
+    "expected_keywords": ["hailstorm", "localized", "individual", "farm", "72 hours"],
+    "is_answerable": true,
+    "expected_source": "revamped_ogs_final.pdf",
+    "notes": "Hailstorm is an identified localized calamity assessed at individual farm level."
+  },
+  {
+    "id": "Q3",
+    "question": "How many days after harvest are cut-and-spread crops covered for unseasonal rain?",
+    "expected_keywords": ["14 days", "two weeks", "post-harvest", "cut and spread", "drying"],
+    "is_answerable": true,
+    "expected_source": "revamped_ogs_final.pdf",
+    "notes": "Post-harvest cover is available up to 14 days for crops in field drying condition."
+  },
+  {
+    "id": "Q4",
+    "question": "Hailstorm hit my 1.2 ha soybean at 9 pm yesterday. By when must I inform, through which channels, and what premium did I pay if the scale of finance is Rs 49,000 per ha?",
+    "expected_keywords": ["72 hours", "crop insurance app", "14447", "58,800", "1,176"],
+    "is_answerable": true,
+    "expected_source": "revamped_ogs_final.pdf",
+    "notes": "72h window, app/helpline/bank, SI=58,800, premium=1,176."
+  },
+  {
+    "id": "Q5",
+    "question": "How did the claim intimation time change between the 2016 guidelines and the revamped guidelines?",
+    "expected_keywords": ["48 hours", "72 hours", "2016", "revamped", "farmer"],
+    "is_answerable": true,
+    "expected_source": "revised_operational_guidelines.pdf",
+    "notes": "Intimation window expanded from 48h to 72h for farmers; 48h retained for bank forwarding."
+  },
+  {
+    "id": "Q6",
+    "question": "Has my PMFBY claim for kharif 2025 been approved?",
+    "expected_keywords": ["i don't know", "pmfby.gov.in", "ncip", "14447"],
+    "is_answerable": false,
+    "expected_source": "N/A - Must refuse with 'I don't know'",
+    "notes": "Mandatory refusal rule: static guidelines cannot check private individual claim status."
+  },
+  {
+    "id": "Q7",
+    "question": "Is PMFBY crop insurance compulsory for farmers who have a Kisan Credit Card (KCC) loan?",
+    "expected_keywords": ["voluntary", "optional", "kharif 2020", "opt-out", "7 days"],
+    "is_answerable": true,
+    "expected_source": "revamped_ogs_final.pdf",
+    "notes": "Optional/voluntary for loanee farmers since Kharif 2020."
+  },
+  {
+    "id": "Q8",
+    "question": "What happens if deficit rainfall prevents farmers in my village from sowing at the start of the season?",
+    "expected_keywords": ["prevented sowing", "75%", "25%", "sum insured", "terminated"],
+    "is_answerable": true,
+    "expected_source": "revamped_ogs_final.pdf",
+    "notes": "Prevented sowing cover provides up to 25% of SI when >75% area cannot be sown."
+  },
+  {
+    "id": "Q9",
+    "question": "Are losses due to war, nuclear risks, or malicious damage covered under PMFBY?",
+    "expected_keywords": ["exclusions", "war", "nuclear", "malicious", "preventable"],
+    "is_answerable": true,
+    "expected_source": "revamped_ogs_final.pdf",
+    "notes": "Excluded under general scheme exclusions (Para 5.4)."
+  },
+  {
+    "id": "Q10",
+    "question": "If my bank or insurer does not resolve my crop insurance dispute, where can I escalate a grievance?",
+    "expected_keywords": ["dgrc", "sgrc", "grievance", "committee", "district", "state"],
+    "is_answerable": true,
+    "expected_source": "revamped_ogs_final.pdf",
+    "notes": "District Level (DGRC) and State Level Grievance Redressal Committee (SGRC)."
+  },
+  {
+    "id": "Q11",
+    "question": "What is the trigger criteria and payout for mid-season adversity relief?",
+    "expected_keywords": ["mid-season", "50%", "25%", "on-account", "normal yield"],
+    "is_answerable": true,
+    "expected_source": "revamped_ogs_final.pdf",
+    "notes": "Invoked when expected yield is <50% of normal; 25% on-account payout."
+  },
+  {
+    "id": "Q12",
+    "question": "By when must a bank branch forward a farmer's crop loss intimation to the insurance company?",
+    "expected_keywords": ["48 hours", "bank", "forward", "insurance company"],
+    "is_answerable": true,
+    "expected_source": "revamped_ogs_final.pdf",
+    "notes": "Bank or government officials must forward farmer intimation within next 48 hours."
+  },
+  {
+    "id": "Q13",
+    "question": "What is the maximum farmer premium share for annual commercial or annual horticultural crops?",
+    "expected_keywords": ["5%", "5.0%", "commercial", "horticultural", "actuarial"],
+    "is_answerable": true,
+    "expected_source": "revamped_ogs_final.pdf",
+    "notes": "Maximum 5% of Sum Insured or actuarial rate, whichever is less."
+  },
+  {
+    "id": "Q14",
+    "question": "Who decides the Scale of Finance used to calculate the crop insurance sum insured?",
+    "expected_keywords": ["scale of finance", "dltc", "district level", "technical committee"],
+    "is_answerable": true,
+    "expected_source": "revamped_ogs_final.pdf",
+    "notes": "Decided by District Level Technical Committee (DLTC) and notified by state."
+  },
+  {
+    "id": "Q15",
+    "question": "Can you check if my compensation payment has reached my State Bank of India account?",
+    "expected_keywords": ["i don't know", "pmfby.gov.in", "bank", "ncip", "14447"],
+    "is_answerable": false,
+    "expected_source": "N/A - Must refuse with 'I don't know'",
+    "notes": "Personal bank account payment status is unanswerable from static guidelines."
+  }
+]
+

@@ -1,0 +1,347 @@
+[
+  {
+    "name": "Config A (Compact / top-3)",
+    "chunk_size": 400,
+    "top_k": 3,
+    "total_chunks": 2217,
+    "hit_rate_pct": 69.2,
+    "refusal_rate_pct": 100.0,
+    "overall_accuracy_pct": 73.3,
+    "avg_latency_ms": 857.4,
+    "item_results": [
+      {
+        "id": "Q1",
+        "type": "answerable",
+        "matched_keywords": [
+          "2.0%",
+          "oilseed",
+          "kharif",
+          "sum insured"
+        ],
+        "passed": true,
+        "latency_ms": 3006.2
+      },
+      {
+        "id": "Q2",
+        "type": "answerable",
+        "matched_keywords": [
+          "hailstorm",
+          "localized",
+          "individual",
+          "farm",
+          "72 hours"
+        ],
+        "passed": true,
+        "latency_ms": 744.9
+      },
+      {
+        "id": "Q3",
+        "type": "answerable",
+        "matched_keywords": [
+          "14 days",
+          "two weeks",
+          "post-harvest",
+          "cut and spread",
+          "drying"
+        ],
+        "passed": true,
+        "latency_ms": 749.6
+      },
+      {
+        "id": "Q4",
+        "type": "answerable",
+        "matched_keywords": [
+          "72 hours",
+          "crop insurance app",
+          "14447"
+        ],
+        "passed": true,
+        "latency_ms": 790.7
+      },
+      {
+        "id": "Q5",
+        "type": "answerable",
+        "matched_keywords": [
+          "48 hours",
+          "72 hours",
+          "2016",
+          "revamped",
+          "farmer"
+        ],
+        "passed": true,
+        "latency_ms": 852.2
+      },
+      {
+        "id": "Q6",
+        "type": "unanswerable",
+        "passed": true,
+        "latency_ms": 0.0
+      },
+      {
+        "id": "Q7",
+        "type": "answerable",
+        "matched_keywords": [],
+        "passed": false,
+        "latency_ms": 755.5
+      },
+      {
+        "id": "Q8",
+        "type": "answerable",
+        "matched_keywords": [
+          "prevented sowing",
+          "75%"
+        ],
+        "passed": true,
+        "latency_ms": 844.5
+      },
+      {
+        "id": "Q9",
+        "type": "answerable",
+        "matched_keywords": [
+          "exclusions",
+          "war",
+          "nuclear",
+          "malicious",
+          "preventable"
+        ],
+        "passed": true,
+        "latency_ms": 889.5
+      },
+      {
+        "id": "Q10",
+        "type": "answerable",
+        "matched_keywords": [
+          "grievance",
+          "state"
+        ],
+        "passed": false,
+        "latency_ms": 954.7
+      },
+      {
+        "id": "Q11",
+        "type": "answerable",
+        "matched_keywords": [
+          "mid-season",
+          "50%",
+          "25%",
+          "on-account",
+          "normal yield"
+        ],
+        "passed": true,
+        "latency_ms": 918.9
+      },
+      {
+        "id": "Q12",
+        "type": "answerable",
+        "matched_keywords": [
+          "bank"
+        ],
+        "passed": false,
+        "latency_ms": 769.0
+      },
+      {
+        "id": "Q13",
+        "type": "answerable",
+        "matched_keywords": [
+          "5%",
+          "commercial",
+          "horticultural",
+          "actuarial"
+        ],
+        "passed": true,
+        "latency_ms": 796.0
+      },
+      {
+        "id": "Q14",
+        "type": "answerable",
+        "matched_keywords": [
+          "scale of finance"
+        ],
+        "passed": false,
+        "latency_ms": 789.2
+      },
+      {
+        "id": "Q15",
+        "type": "unanswerable",
+        "passed": true,
+        "latency_ms": 0.1
+      }
+    ]
+  },
+  {
+    "name": "Config B (Broader Context / top-5)",
+    "chunk_size": 750,
+    "top_k": 5,
+    "total_chunks": 1206,
+    "hit_rate_pct": 92.3,
+    "refusal_rate_pct": 100.0,
+    "overall_accuracy_pct": 93.3,
+    "avg_latency_ms": 719.9,
+    "item_results": [
+      {
+        "id": "Q1",
+        "type": "answerable",
+        "matched_keywords": [
+          "2.0%",
+          "oilseed",
+          "kharif",
+          "sum insured"
+        ],
+        "passed": true,
+        "latency_ms": 990.2
+      },
+      {
+        "id": "Q2",
+        "type": "answerable",
+        "matched_keywords": [
+          "hailstorm",
+          "localized",
+          "individual",
+          "farm",
+          "72 hours"
+        ],
+        "passed": true,
+        "latency_ms": 843.4
+      },
+      {
+        "id": "Q3",
+        "type": "answerable",
+        "matched_keywords": [
+          "14 days",
+          "two weeks",
+          "post-harvest",
+          "cut and spread",
+          "drying"
+        ],
+        "passed": true,
+        "latency_ms": 759.0
+      },
+      {
+        "id": "Q4",
+        "type": "answerable",
+        "matched_keywords": [
+          "72 hours",
+          "crop insurance app",
+          "14447"
+        ],
+        "passed": true,
+        "latency_ms": 947.4
+      },
+      {
+        "id": "Q5",
+        "type": "answerable",
+        "matched_keywords": [
+          "48 hours",
+          "72 hours",
+          "2016",
+          "revamped",
+          "farmer"
+        ],
+        "passed": true,
+        "latency_ms": 840.6
+      },
+      {
+        "id": "Q6",
+        "type": "unanswerable",
+        "passed": true,
+        "latency_ms": 0.1
+      },
+      {
+        "id": "Q7",
+        "type": "answerable",
+        "matched_keywords": [
+          "optional",
+          "kharif 2020"
+        ],
+        "passed": true,
+        "latency_ms": 875.1
+      },
+      {
+        "id": "Q8",
+        "type": "answerable",
+        "matched_keywords": [
+          "prevented sowing",
+          "75%"
+        ],
+        "passed": true,
+        "latency_ms": 782.6
+      },
+      {
+        "id": "Q9",
+        "type": "answerable",
+        "matched_keywords": [
+          "exclusions",
+          "war",
+          "nuclear",
+          "malicious",
+          "preventable"
+        ],
+        "passed": true,
+        "latency_ms": 760.7
+      },
+      {
+        "id": "Q10",
+        "type": "answerable",
+        "matched_keywords": [
+          "sgrc",
+          "grievance",
+          "state"
+        ],
+        "passed": true,
+        "latency_ms": 753.8
+      },
+      {
+        "id": "Q11",
+        "type": "answerable",
+        "matched_keywords": [
+          "mid-season",
+          "50%",
+          "25%",
+          "on-account",
+          "normal yield"
+        ],
+        "passed": true,
+        "latency_ms": 788.0
+      },
+      {
+        "id": "Q12",
+        "type": "answerable",
+        "matched_keywords": [
+          "48 hours",
+          "bank",
+          "forward",
+          "insurance company"
+        ],
+        "passed": true,
+        "latency_ms": 809.4
+      },
+      {
+        "id": "Q13",
+        "type": "answerable",
+        "matched_keywords": [
+          "5%",
+          "commercial",
+          "horticultural",
+          "actuarial"
+        ],
+        "passed": true,
+        "latency_ms": 830.8
+      },
+      {
+        "id": "Q14",
+        "type": "answerable",
+        "matched_keywords": [
+          "scale of finance"
+        ],
+        "passed": false,
+        "latency_ms": 817.6
+      },
+      {
+        "id": "Q15",
+        "type": "unanswerable",
+        "passed": true,
+        "latency_ms": 0.1
+      }
+    ]
+  }
+]

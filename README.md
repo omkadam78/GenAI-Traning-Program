@@ -21,13 +21,26 @@ Farmers often face difficulty understanding crop insurance guidelines, premium c
 - https://pmfby.gov.in/pdf/Revamped%20OGs_Final.pdf
 - https://pmfby.gov.in/pdf/Revised_Operational_Guidelines.pdf
 
-## Current Progress (Days 1–6)
+## Current Progress (Days 1–8)
 - **Day 1**: Python intro (`day01_intro.py`) and interactive menu (`day01_menu.py`).
 - **Day 2**: 20 starter PMFBY records (`data/sample_records.py`), reusable record utilities (`app/records.py`), and terminal CLI (`app/cli.py`).
 - **Day 3**: Official source downloader with manifest (`app/fetch.py`), `Record` dataclass (`app/models.py`), and PDF/HTML ingestion pipeline (`app/ingest.py` -> `data/records.json`).
 - **Day 4**: FastAPI service (`app/main.py`), TF-IDF + cosine similarity search (`app/smart_search.py`), and pandas dataset analysis (`analysis/explore.py`).
 - **Day 5**: LLM fundamentals guide with diagram (`docs/how_llms_work.md`) and 10 evaluation questions (`eval/questions.json`, `docs/questions.md`).
 - **Day 6**: LLM provider wrapper supporting Groq & Gemini with offline rule fallback (`app/llm.py`), prompt engineering templates (`prompts/system_prompt.txt`, `prompts/task_v1_concise.txt`, `prompts/task_v2_detailed.txt`), `POST /chat` returning structured JSON (`answer`, `confidence`, `follow_up`), configuration template (`.env.example`), and evaluation report comparing both prompt versions (`eval/prompt_compare.md`).
+- **Day 7**: Document chunking pipeline preserving source, page, and title (`app/chunking.py`), dense semantic embedding utilities (`app/embed.py`), persistent Chroma vectorstore (`app/vectorstore.py` with 1,786 indexed chunks), `GET /search/semantic` endpoint, and semantic evaluation report on 10 questions (`eval/search_results.md`).
+- **Day 8**: Grounded RAG engine with strict citations and personal claim refusal (`app/rag.py`), `POST /ask` endpoint, 15-question evaluation suite (`eval/eval_set.json`), dual-configuration experiment script (`eval/run_eval.py`), and configuration winner table below.
+
+## RAG Evaluation: 2 Configurations Comparison (Day 8)
+
+Evaluated on 15 test questions from `eval/eval_set.json` (13 answerable guideline scenarios + 2 mandatory refusal queries Q6 and Q15):
+
+| Configuration | Chunk Size | Top-K | Retrieval Recall | Refusal Accuracy (Q6 & Q15) | Overall Accuracy | Avg Latency | Result |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Config A (Compact / top-3)** | 400 chars | 3 | 69.2% | 100.0% | 73.3% | 857.4 ms | Alternative |
+| **Config B (Broader Context / top-5)** | 750 chars | 5 | 92.3% | 100.0% | 93.3% | 719.9 ms | **WINNER** |
+
+**Winner Analysis**: **Config B (Broader Context / top-5)** provides optimal chunk cohesion, capturing entire PMFBY policy provisions without splitting clauses while maintaining rapid retrieval and 100% precision on unanswerable status refusals.
 
 ## How to run
 
@@ -51,34 +64,41 @@ python -m app.fetch
 python -m app.ingest
 ```
 
-### 4. Explore dataset with pandas (Day 4)
+### 4. Index Chroma Vectorstore (Day 7)
 ```powershell
-python -m analysis.explore
+python -m app.vectorstore
 ```
 
-### 5. Start the FastAPI server (Days 4–6)
+### 5. Run RAG Evaluation (Day 8)
+```powershell
+python -m eval.run_eval
+```
+
+### 6. Start the FastAPI server (Days 4–8)
 ```powershell
 uvicorn app.main:app --reload
 ```
 Open Swagger UI docs at `http://127.0.0.1:8000/docs`.
 
 Available endpoints:
-- `GET /health`
-- `GET /records?limit=5`
-- `GET /records/{id}`
-- `GET /search?q=hailstorm`
-- `POST /questions` (Day 4 TF-IDF rule lookup)
-- `POST /chat` (Day 6 LLM endpoint with `message`, `prompt_version`, returning `answer`, `confidence`, `follow_up`)
+- `GET /health`: service health and record count
+- `GET /records`: list PMFBY rule records
+- `GET /records/{id}`: read single record by ID
+- `GET /search?q=hailstorm`: keyword search over rule records
+- `GET /search/semantic?q=hailstorm`: semantic vector search over 1,786 Chroma chunks
+- `POST /questions`: Day 4 TF-IDF rule lookup
+- `POST /chat`: Day 6 prompt-engineered LLM chat (`message`, `prompt_version`)
+- `POST /ask`: Day 8 grounded RAG endpoint answering questions from retrieved chunks with citations (strictly refuses private claim queries with `"I don't know"`)
 
-Example `/chat` request:
+Example `/ask` request:
 ```json
 {
-  "message": "What premium do I pay for soybean crop insurance in kharif?",
-  "prompt_version": "v2"
+  "question": "Hailstorm hit my 1.2 ha soybean at 9 pm yesterday. By when must I inform?",
+  "top_k": 3
 }
 ```
 
-### 6. Run tests
+### 7. Run test suite
 ```powershell
 python -m pytest -v
 python tests/test_records.py
