@@ -1,12 +1,14 @@
-"""FastAPI service for FasalBima Sathi (Days 4–6)."""
+"""FastAPI service for FasalBima Sathi (Days 4–8)."""
 import re
 
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.llm import generate_chat_response
+from app.rag import ask_rag
 from app.records import get_by_id, load_records
 from app.smart_search import smart_search
+from app.vectorstore import query_semantic
 
 DISCLAIMER = (
     "Information from official PMFBY guidelines, not insurance or legal advice. "
@@ -20,12 +22,14 @@ OUT_OF_SCOPE_PATTERNS = (
     r"\bhas\s+my\b.*\bapproved\b",
     r"\bpolicy\s+status\b",
     r"\bcredit(?:ed)?\s+to\s+my\s+bank\b",
+    r"\b(?:compensation|payment|money|amount)\b.*\b(?:reached|account|bank|sbi)\b",
+    r"\bcheck\s+if\s+my\b",
 )
 
 app = FastAPI(
     title="FasalBima Sathi API",
-    description="PMFBY crop insurance rule and LLM assistant powered by official guidelines.",
-    version="0.6.0",
+    description="PMFBY crop insurance assistant with rule lookup, LLM chat, and Chroma RAG.",
+    version="0.8.0",
 )
 
 
@@ -42,6 +46,12 @@ class ChatRequest(BaseModel):
         description="Prompt version: 'v1' (concise) or 'v2' (detailed structured)",
     )
     top_k: int = Field(default=3, ge=1, le=10)
+
+
+class AskRequest(BaseModel):
+    question: str = Field(..., min_length=1, description="Farmer crop insurance question")
+    top_k: int = Field(default=3, ge=1, le=10)
+    prompt_version: str = Field(default="v2", pattern="^(v1|v2)$")
 
 
 def _is_personal_status_query(question: str) -> bool:
@@ -87,6 +97,20 @@ def search_records(
     return {"query": q, "count": len(results), "results": results}
 
 
+@app.get("/search/semantic")
+def search_semantic(
+    q: str = Query(..., min_length=1, description="Semantic search query"),
+    limit: int = Query(default=5, ge=1, le=50),
+):
+    """Day 7 endpoint: semantic search over Chroma vectorstore collection."""
+    results = query_semantic(q, top_k=limit)
+    return {
+        "query": q,
+        "count": len(results),
+        "results": results,
+    }
+
+
 @app.post("/questions")
 def ask_question(payload: QuestionRequest):
     if _is_personal_status_query(payload.question):
@@ -113,7 +137,6 @@ def ask_question(payload: QuestionRequest):
             "disclaimer": DISCLAIMER,
         }
 
-    # Prefer newest Revamped OG records first if scores are close
     ordered = sorted(
         matches,
         key=lambda m: (
@@ -157,3 +180,13 @@ def chat(payload: ChatRequest):
     )
     response["disclaimer"] = DISCLAIMER
     return response
+
+
+@app.post("/ask")
+def ask(payload: AskRequest):
+    """Day 8 endpoint: answer questions from retrieved chunks with citations; must say 'I don't know' for Q6."""
+    return ask_rag(
+        question=payload.question,
+        top_k=payload.top_k,
+        prompt_version=payload.prompt_version,
+    )
