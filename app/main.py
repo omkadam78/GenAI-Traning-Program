@@ -1,5 +1,6 @@
 """FastAPI service for FasalBima Sathi (Days 4–9)."""
 import re
+import uuid
 
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -58,13 +59,14 @@ class AskRequest(BaseModel):
 
 class AgentRequest(BaseModel):
     query: str | None = Field(default=None, description="Farmer query or calculation request")
-    thread_id: str = Field(default="default_thread", description="Thread ID for stateful agent memory")
-    approved: bool | None = Field(default=None, description="Approval flag for human-in-the-loop confirmation")
+    thread_id: str | None = Field(default=None, description="Session ID for stateful agent memory")
+    approved: bool | None = Field(default=None, description="Approval flag (true to confirm, false to cancel)")
     agent_type: str = Field(
         default="langgraph",
         pattern="^(langgraph|handwritten)$",
         description="Agent implementation: 'langgraph' (with memory & approval) or 'handwritten'",
     )
+    max_iterations: int = Field(default=5, ge=1, le=10, description="Maximum reasoning/tool iterations")
 
 
 def _is_personal_status_query(question: str) -> bool:
@@ -208,21 +210,37 @@ def ask(payload: AskRequest):
 @app.post("/agent")
 def agent(payload: AgentRequest):
     """Day 9 endpoint: PMFBY agent with memory and human-in-the-loop approval step."""
+    # 1. Reject empty or whitespace-only queries when approved is not passed
+    if payload.query is not None and not payload.query.strip() and payload.approved is None:
+        raise HTTPException(status_code=400, detail="Query cannot be empty or whitespace.")
+
+    # 2. Reject request with neither query nor approved flag
+    if payload.query is None and payload.approved is None:
+        raise HTTPException(status_code=400, detail="Either 'query' or 'approved' must be provided.")
+
     if payload.agent_type == "handwritten":
-        if not payload.query:
+        if not payload.query or not payload.query.strip():
             raise HTTPException(status_code=400, detail="query is required for handwritten agent")
-        result = run_agent_loop(payload.query)
-        result["thread_id"] = payload.thread_id
+        result = run_agent_loop(payload.query, max_iterations=payload.max_iterations)
+        result["thread_id"] = payload.thread_id or f"session_{uuid.uuid4().hex[:12]}"
         result["agent_type"] = "handwritten"
-        result["status"] = "completed"
-        result["requires_approval"] = False
         return result
 
-    result = run_langgraph_agent(
-        query=payload.query,
-        thread_id=payload.thread_id,
-        approved=payload.approved,
-    )
-    result["agent_type"] = "langgraph"
-    return result
+    # 3. For approval/resume in LangGraph, if query is omitted, thread_id must be provided
+    if payload.query is None and payload.approved is not None and not payload.thread_id:
+        raise HTTPException(
+            status_code=400,
+            detail="A valid 'thread_id' is required to resume or cancel a pending calculation.",
+        )
+
+    try:
+        result = run_langgraph_agent(
+            query=payload.query,
+            thread_id=payload.thread_id,
+            approved=payload.approved,
+        )
+        result["agent_type"] = "langgraph"
+        return result
+    except Exception as err:
+        raise HTTPException(status_code=500, detail=f"Agent processing error: {err}")
 

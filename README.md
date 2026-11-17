@@ -36,32 +36,55 @@ Farmers often face difficulty understanding crop insurance guidelines, premium c
 
 ### 1. Pure Arithmetic Premium Tool (`app/tools.py`)
 Calculates PMFBY sum insured and farmer premium share using official rates from `data/records.json`:
-- **Sum Insured**: $\text{Scale of Finance} \times \text{Insured Area (ha)}$
-- **Farmer Premium Rate**:
+- **Sum Insured**: $\text{Scale of Finance (₹/ha)} \times \text{Insured Area (ha)}$
+- **Area Units**: Explicitly supports hectares (`ha`, `hectare`) and acres (`acre`, `acres` converted at $1 \text{ acre} = 0.404686 \text{ ha}$). Unsupported units (e.g. bigha, guntha) are rejected with clear error messages.
+- **Monetary Precision**: Uses Python `Decimal` with documented `ROUND_HALF_UP` quantization to ₹0.01.
+- **Input Validation**: Strictly rejects booleans, NaN, infinity, negative or zero amounts, and invalid actuarial rates.
+- **Farmer Premium Rate & Ceilings**:
   - Kharif food grains & oilseeds (e.g. Soybean): **2.0%**
   - Rabi food grains & oilseeds (e.g. Wheat): **1.5%**
   - Annual commercial & horticultural crops (e.g. Cotton): **5.0%**
-- **Farmer Premium Share**: $\text{Sum Insured} \times \text{Rate \%}$
+- **Rate Ambiguity Handling**: If crop or season is missing or unverified against `records.json`, the agent halts and requests clarification rather than inventing a rate.
+- **Premium Estimation**: Distinguishes between an **estimated maximum farmer premium** (capped at the statutory rate) when tender rates are unnotified, and an **exact premium** when the tender actuarial rate is provided ($\min(\text{statutory\_cap}, \text{actuarial\_rate})$).
 
-### 2. Hand-Written Agent Loop (`app/agent_loop.py`)
-A pure Python ReAct loop that coordinates multi-step inquiries, tool calling, and observation tracking without third-party frameworks. Automatically combines premium calculations with localized calamity intimation guidance for compound queries (e.g., Question 4).
+### 2. Intimation Deadline Clock (`app/tools.py`)
+Computes the 72-hour localized calamity and post-harvest intimation deadline under Revamped PMFBY Guidelines (Para 15.1.2 & 15.2.2):
+- **Timezone**: Evaluates in `Asia/Kolkata` (IST).
+- **Date Parsing**: Supports ISO timestamps (`YYYY-MM-DD HH:MM`) and relative expressions (`yesterday at 9 pm`, `12 hours ago`).
+- **Injectable Clock**: Accepts an injectable clock `now` for deterministic regression testing.
+- **Strict Validation**: Rejects invalid or missing timestamps; never silently substitutes the current time. Only reports execution in tool traces when the function actually ran.
 
-### 3. Stateful LangGraph with Memory & Approval Step (`app/graph.py`)
-Rebuilds the agent inside a stateful `StateGraph`:
-- **Memory**: Persistent checkpointer (`MemorySaver`) preserving context across turns via `thread_id`.
-- **Human-in-the-Loop Approval**: Financial calculations and formal premium estimations require explicit user confirmation before execution (`requires_approval = True`, `status = "approval_required"`). Upon sending `approved = True` on the same `thread_id`, the agent resumes from memory and finalizes the calculation.
-- **Strict Safeguard**: Intercepts unanswerable personal claim status questions (Q6 & Q15) with `"I don't know"`.
+### 3. Hand-Written Agent Loop (`app/agent_loop.py`)
+A pure Python ReAct loop coordinating multi-step farmer inquiries:
+- Dispatches `pmfby_premium`, `pmfby_knowledge_search`, and `pmfby_claim_deadline_check`.
+- Truthful tool traces: only reports tools that actually executed.
+- Enforces `max_iterations: 5`.
+- Strict refusal safeguard: intercepts individual claim approval or payment inquiries (Q6 & Q15) with `"I don't know"` and `0.0` confidence.
+
+### 4. Stateful LangGraph with Memory & Approval Step (`app/graph.py`)
+Rebuilds the agent into a stateful `StateGraph`:
+- **Session Memory**: Uses LangGraph `MemorySaver`. State is strictly isolated per conversation ID (`thread_id`). If omitted, a unique session ID (`session_<uuid>`) is generated and returned.
+- **Human-in-the-Loop Approval Step**:
+  - Every NEW calculation resets approval and pauses for user confirmation (`status: "approval_required"`, `requires_approval: true`).
+  - Parameters are bound to a unique calculation ID (`calc_<uuid>`).
+  - Resuming requires an active pending calculation on the session. Submitting `approved: true` without a pending calculation is rejected (`status: "rejected"`).
+  - Cancellation (`approved: false`) cancels the pending request without executing any tools (`status: "cancelled"`).
+  - Replay protection: once executed or cancelled, the pending calculation is cleared.
+  - Follow-up knowledge questions on the same session execute cleanly without reusing previous calculation parameters.
+- **Memory Limitations**: `MemorySaver` maintains multi-turn session state in RAM during application server runtime. In-memory checkpoints do not persist across process restarts; persistent production deployments would require external storage checkpointers such as `SqliteSaver` or `PostgresSaver`.
 
 ## RAG Evaluation: 2 Configurations Comparison (Day 8)
 
-Evaluated on 15 test questions from `eval/eval_set.json` (13 answerable guideline scenarios + 2 mandatory refusal queries Q6 and Q15):
+The dual-configuration benchmark evaluated 15 test scenarios from `eval/eval_set.json` (13 answerable PMFBY guideline questions + 2 mandatory refusal queries Q6 and Q15):
 
-| Configuration | Chunk Size | Top-K | Retrieval Recall | Refusal Accuracy (Q6 & Q15) | Overall Accuracy | Avg Latency | Result |
+| Configuration | Chunk Size | Top-K | Keyword Retrieval Recall | Refusal Accuracy (Q6 & Q15) | Historical Benchmark Result | Avg Latency | Result |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Config A (Compact / top-3)** | 400 chars | 3 | 69.2% | 100.0% | 73.3% | 857.4 ms | Alternative |
 | **Config B (Broader Context / top-5)** | 750 chars | 5 | 92.3% | 100.0% | 93.3% | 719.9 ms | **WINNER** |
 
-**Winner Analysis**: **Config B (Broader Context / top-5)** provides optimal chunk cohesion, capturing entire PMFBY policy provisions without splitting clauses while maintaining rapid retrieval and 100% precision on unanswerable status refusals.
+> [!NOTE]
+> **Evaluation Methodology & Limitations**:
+> The 93.3% score represents a **historical keyword-based retrieval benchmark result** (verifying that retrieved chunks contain expected topic keywords and that unanswerable claim queries are refused). It does not represent verified natural-language factual accuracy across all possible queries. The benchmark queries the pre-indexed Chroma vectorstore.
 
 ## How to run
 
@@ -112,30 +135,87 @@ Available endpoints:
 - `POST /ask`: Day 8 grounded RAG endpoint answering questions from retrieved chunks with citations (strictly refuses private claim queries with `"I don't know"`)
 - `POST /agent`: Day 9 agent endpoint supporting both LangGraph (with memory + approval step) and hand-written agent loops
 
-Example 1: LangGraph Agent with Approval Step (`POST /agent`):
-```json
-// Turn 1: Request calculation
+### Working API Examples (`POST /agent`)
+
+#### Example 1: New Session & Approval Lifecycle (LangGraph)
+```http
 POST /agent
+Content-Type: application/json
+
 {
   "query": "Calculate premium for 1.2 ha soybean at scale of finance Rs 49,000 per ha",
-  "thread_id": "session_101",
   "agent_type": "langgraph"
 }
-// Response: {"status": "approval_required", "requires_approval": true, "answer": "Approval Required: Please confirm calculation..."}
-
-// Turn 2: User confirms approval
-POST /agent
+```
+**Response (Turn 1 - Session Created & Approval Required):**
+```json
 {
-  "thread_id": "session_101",
+  "thread_id": "session_8f4a12bc90de",
+  "status": "approval_required",
+  "requires_approval": true,
+  "answer": "**Approval Required for PMFBY Calculation:**\n- Calculation ID: `calc_3e71ab01`\n- Crop: Soybean\n- Area: 1.2 ha\n- Scale of Finance: ₹49,000.00/ha\n\nTo proceed, submit with approved: true on session `session_8f4a12bc90de`."
+}
+```
+
+**Turn 2A: Confirm Approval:**
+```http
+POST /agent
+Content-Type: application/json
+
+{
+  "thread_id": "session_8f4a12bc90de",
   "approved": true,
   "agent_type": "langgraph"
 }
-// Response: {"status": "completed", "requires_approval": false, "answer": "PMFBY Premium Calculation (Confirmed): Sum Insured: ₹58,800.00, Farmer Premium Share: ₹1,176.00..."}
+```
+**Response (Completed):**
+```json
+{
+  "thread_id": "session_8f4a12bc90de",
+  "status": "completed",
+  "requires_approval": false,
+  "answer": "**PMFBY Premium Calculation (Confirmed):**\n- Sum Insured: ₹58,800.00 (₹49,000.00/ha × 1.20 ha)\n- Farmer Premium Rate: 2.00% (Kharif Soybean)\n- Estimated Maximum Farmer Premium Share: ₹1,176.00"
+}
 ```
 
-Example 2: Hand-written Agent Loop (`POST /agent`):
-```json
+**Turn 2B (Alternative): Cancel Approval:**
+```http
 POST /agent
+Content-Type: application/json
+
+{
+  "thread_id": "session_8f4a12bc90de",
+  "approved": false,
+  "agent_type": "langgraph"
+}
+```
+**Response (Cancelled):**
+```json
+{
+  "thread_id": "session_8f4a12bc90de",
+  "status": "cancelled",
+  "requires_approval": false,
+  "tool_calls": [],
+  "answer": "Calculation cancelled as requested. No tools were executed and no records were submitted."
+}
+```
+
+#### Example 2: Acres to Hectares Conversion
+```http
+POST /agent
+Content-Type: application/json
+
+{
+  "query": "Calculate premium for 2.47105 acres of soybean at scale of finance Rs 50,000 per ha",
+  "agent_type": "langgraph"
+}
+```
+
+#### Example 3: Hand-Written Agent Loop (Compound Calamity & Premium Query)
+```http
+POST /agent
+Content-Type: application/json
+
 {
   "query": "Hailstorm hit my 1.2 ha soybean at 9 pm yesterday. By when must I inform, through which channels, and what premium did I pay if the scale of finance is Rs 49,000 per ha?",
   "agent_type": "handwritten"

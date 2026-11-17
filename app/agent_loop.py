@@ -1,16 +1,19 @@
 """Hand-written agent loop for FasalBima Sathi (Day 9).
 
-A pure Python agent implementation that reasons over farmer questions,
+A pure Python agent loop that reasons over farmer questions,
 dispatches to agent tools (pmfby_premium, pmfby_knowledge_search, pmfby_claim_deadline_check),
-and synthesizes grounded answers with tool traces.
+enforces truthful tool traces, handles missing inputs/errors gracefully, and preserves strict refusals.
 """
 from __future__ import annotations
 
 import re
+from datetime import datetime
 from typing import Any, Dict, List, Optional
+import zoneinfo
 
 from app.tools import (
     AVAILABLE_TOOLS,
+    IST,
     pmfby_claim_deadline_check,
     pmfby_knowledge_search,
     pmfby_premium,
@@ -32,29 +35,34 @@ OUT_OF_SCOPE_PATTERNS = (
     r"\bcheck\s+if\s+my\b",
 )
 
+KNOWN_CROPS = [
+    "soybean", "soya", "wheat", "cotton", "rice", "paddy", "maize", "corn",
+    "gram", "chickpea", "chana", "sugarcane", "onion", "potato", "tomato",
+    "mustard", "jowar", "sorghum", "bajra", "pearl millet", "tur", "arhar",
+    "pigeon pea", "groundnut", "peanut", "sunflower", "sesamum", "barley",
+    "chilli", "banana", "turmeric", "pomegranate"
+]
+
 
 def _is_out_of_scope(query: str) -> bool:
     q = query.strip().casefold()
     return any(re.search(pat, q) for pat in OUT_OF_SCOPE_PATTERNS)
 
 
-def extract_premium_params(query: str) -> Optional[Dict[str, Any]]:
-    """Extract scale_of_finance, area, crop, and season from farmer text."""
+def extract_premium_params(query: str) -> Dict[str, Any]:
+    """Extract calculation parameters from text without silent defaults."""
     q = query.casefold()
 
-    # Scale of finance pattern (e.g. "scale of finance is Rs 49,000", "scale of finance: 50000", "₹49,000 per ha")
+    # Scale of finance pattern
     sof_match = re.search(
         r"(?:scale\s+of\s+finance(?:(?:\s+is)?(?:\s+of)?(?:\s+rs\.?|\s+inr|\s+₹)?)?[\s:=]+|sof[\s:=]+|(?:rs\.?|inr|₹)\s*)(\d[\d,]*(?:\.\d+)?)\s*(?:per|\/)?\s*(?:ha|hectare|acre)?",
         q,
     )
-    # Area pattern (e.g. "1.2 ha", "2.5 hectares", "1.2 hectare", "3 acres", "area is 2 ha")
+    # Area pattern with unit distinction
     area_match = re.search(
-        r"(\d+(?:\.\d+)?)\s*(?:ha\b|hectare|hectares|acres?\b)",
+        r"(\d+(?:\.\d+)?)\s*(ha\b|hectares?|acres?\b)",
         q,
     )
-
-    if not (sof_match or area_match or "premium" in q or "calculate" in q or "sum insured" in q):
-        return None
 
     scale_val: Optional[float] = None
     if sof_match:
@@ -63,18 +71,16 @@ def extract_premium_params(query: str) -> Optional[Dict[str, Any]]:
         scale_val = 49000.0
 
     area_val: Optional[float] = None
+    unit_val = "ha"
     if area_match:
         area_val = float(area_match.group(1))
+        unit_str = area_match.group(2).lower()
+        unit_val = "acre" if "acre" in unit_str else "ha"
 
     # Detect crop
-    crops = [
-        "soybean", "soya", "wheat", "cotton", "rice", "paddy", "maize",
-        "gram", "chickpea", "sugarcane", "onion", "potato", "tomato",
-        "mustard", "jowar", "bajra", "tur", "arhar", "groundnut"
-    ]
     detected_crop: Optional[str] = None
-    for c in crops:
-        if c in q:
+    for c in KNOWN_CROPS:
+        if re.search(rf"\b{re.escape(c)}\b", q):
             detected_crop = c
             break
 
@@ -87,13 +93,55 @@ def extract_premium_params(query: str) -> Optional[Dict[str, Any]]:
     elif "commercial" in q or "horticultural" in q or "annual" in q:
         season = "annual"
 
-    if scale_val is not None and area_val is not None:
-        return {
-            "scale_of_finance": scale_val,
-            "area": area_val,
-            "crop": detected_crop or "soybean",
-            "season": season,
-        }
+    # Actuarial rate if mentioned (e.g. "actuarial rate 12%")
+    actuarial_rate: Optional[float] = None
+    act_match = re.search(r"actuarial\s+(?:rate|premium)?[\s:=]+(\d+(?:\.\d+)?)\s*%", q)
+    if act_match:
+        actuarial_rate = float(act_match.group(1))
+
+    is_calc_intent = bool(
+        "premium" in q
+        or "calculate" in q
+        or "sum insured" in q
+        or "scale of finance" in q
+        or "sof" in q
+        or (area_val is not None and scale_val is not None)
+    )
+
+    return {
+        "is_calc_intent": is_calc_intent,
+        "scale_of_finance": scale_val,
+        "area": area_val,
+        "unit": unit_val,
+        "crop": detected_crop,
+        "season": season,
+        "actuarial_rate": actuarial_rate,
+    }
+
+
+def extract_loss_timestamp_text(query: str) -> Optional[str]:
+    """Extract explicit or relative loss timestamp string from query."""
+    q = query.strip()
+    low = q.lower()
+
+    # Yesterday patterns
+    y_match = re.search(r"((?:yesterday\s+(?:at\s+)?|at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm)?\s*(?:yesterday)?)", low)
+    if "yesterday" in low:
+        # Check specific forms like "at 9 pm yesterday" or "yesterday at 9 pm"
+        match = re.search(r"((?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm)\s+yesterday|yesterday\s+(?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm)?)", low)
+        if match:
+            return match.group(1).strip()
+        return "yesterday at 9 pm"
+
+    # Relative hours ago
+    hrs_match = re.search(r"\b(\d+(?:\.\d+)?\s*(?:hours?|hrs?)\s+ago)\b", low)
+    if hrs_match:
+        return hrs_match.group(1)
+
+    # ISO or standard date match (e.g. 2026-11-15 21:00)
+    iso_match = re.search(r"\b(\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?)\b", q)
+    if iso_match:
+        return iso_match.group(1)
 
     return None
 
@@ -101,10 +149,24 @@ def extract_premium_params(query: str) -> Optional[Dict[str, Any]]:
 class HandwrittenAgent:
     """Hand-written ReAct-style agent with tool execution and trace collection."""
 
-    def __init__(self, max_iterations: int = 4):
+    def __init__(self, max_iterations: int = 5, clock_now: Optional[datetime] = None):
         self.max_iterations = max_iterations
+        self.clock_now = clock_now or datetime.now(tz=IST)
 
     def run(self, query: str) -> Dict[str, Any]:
+        # Validate empty or whitespace-only query
+        if not query or not query.strip():
+            return {
+                "query": query,
+                "answer": "Query cannot be empty. Please enter your crop insurance question.",
+                "steps": [],
+                "tools_called": [],
+                "citations": [],
+                "confidence": 0.0,
+                "status": "error",
+                "disclaimer": DISCLAIMER,
+            }
+
         steps: List[Dict[str, Any]] = []
         tools_called: List[str] = []
         citations: List[Dict[str, Any]] = []
@@ -131,132 +193,205 @@ class HandwrittenAgent:
                 "tools_called": [],
                 "citations": [],
                 "confidence": 0.0,
+                "status": "completed",
                 "disclaimer": DISCLAIMER,
             }
 
         q_lower = query.casefold()
         step_num = 1
-
-        # Check if calculation is requested or parameters can be extracted
-        calc_params = extract_premium_params(query)
+        calc_info = extract_premium_params(query)
         calc_result: Optional[Dict[str, Any]] = None
+        calc_error: Optional[str] = None
 
-        if calc_params:
-            thought = (
-                f"User query contains premium calculation inputs (area={calc_params['area']} ha, "
-                f"scale_of_finance=₹{calc_params['scale_of_finance']}, crop={calc_params['crop']}). "
-                f"Calling pmfby_premium tool."
-            )
-            calc_result = pmfby_premium(
-                scale_of_finance=calc_params["scale_of_finance"],
-                area=calc_params["area"],
-                crop=calc_params["crop"],
-                season=calc_params["season"],
-            )
-            tools_called.append("pmfby_premium")
-            steps.append(
-                {
-                    "step": step_num,
-                    "thought": thought,
-                    "action": "pmfby_premium",
-                    "action_input": calc_params,
-                    "observation": calc_result["breakdown"],
-                }
-            )
-            step_num += 1
+        # Check if calculation is intended
+        if calc_info["is_calc_intent"]:
+            missing = []
+            if not calc_info["crop"]:
+                missing.append("crop name (e.g. soybean, wheat, cotton)")
+            if calc_info["area"] is None:
+                missing.append("area in hectares or acres")
+            if calc_info["scale_of_finance"] is None:
+                missing.append("scale of finance in ₹ per ha/acre")
 
-        # Check if knowledge search or intimation check is needed
+            if missing:
+                calc_error = (
+                    f"To calculate your PMFBY premium, please provide the missing information: "
+                    f"{', '.join(missing)}."
+                )
+                steps.append(
+                    {
+                        "step": step_num,
+                        "thought": f"Premium calculation requested but missing inputs: {missing}. Halting for clarification.",
+                        "action": "request_clarification",
+                        "action_input": {"missing": missing},
+                        "observation": calc_error,
+                    }
+                )
+                step_num += 1
+            else:
+                thought = (
+                    f"User query contains calculation inputs (crop={calc_info['crop']}, area={calc_info['area']} {calc_info['unit']}, "
+                    f"scale_of_finance=₹{calc_info['scale_of_finance']}). Calling pmfby_premium tool."
+                )
+                try:
+                    calc_result = pmfby_premium(
+                        scale_of_finance=calc_info["scale_of_finance"],
+                        area=calc_info["area"],
+                        crop=calc_info["crop"],
+                        season=calc_info["season"],
+                        unit=calc_info["unit"],
+                        actuarial_rate=calc_info["actuarial_rate"],
+                    )
+                    tools_called.append("pmfby_premium")
+                    steps.append(
+                        {
+                            "step": step_num,
+                            "thought": thought,
+                            "action": "pmfby_premium",
+                            "action_input": calc_info,
+                            "observation": calc_result["breakdown"],
+                        }
+                    )
+                    step_num += 1
+                except ValueError as err:
+                    calc_error = f"Calculation error: {err}"
+                    steps.append(
+                        {
+                            "step": step_num,
+                            "thought": f"pmfby_premium failed: {err}",
+                            "action": "pmfby_premium_failed",
+                            "action_input": calc_info,
+                            "observation": calc_error,
+                        }
+                    )
+                    step_num += 1
+
+        # Check if deadline check should run
+        loss_ts_text = extract_loss_timestamp_text(query)
+        deadline_info: Optional[Dict[str, Any]] = None
+        deadline_error: Optional[str] = None
+
+        if (
+            loss_ts_text
+            and any(term in q_lower for term in ("hailstorm", "loss", "calamity", "inundation", "landslide", "inform", "deadline", "hours"))
+            and step_num <= self.max_iterations
+        ):
+            thought = f"Loss timestamp identified ('{loss_ts_text}'). Checking 72-hour intimation deadline."
+            try:
+                deadline_info = pmfby_claim_deadline_check(
+                    loss_timestamp=loss_ts_text,
+                    window_hours=72,
+                    now=self.clock_now,
+                )
+                tools_called.append("pmfby_claim_deadline_check")
+                steps.append(
+                    {
+                        "step": step_num,
+                        "thought": thought,
+                        "action": "pmfby_claim_deadline_check",
+                        "action_input": {"loss_timestamp": loss_ts_text, "window_hours": 72},
+                        "observation": f"Deadline: {deadline_info['deadline_timestamp']}, remaining hours: {deadline_info['remaining_hours']}",
+                    }
+                )
+                step_num += 1
+            except ValueError as err:
+                deadline_error = f"Could not compute deadline: {err}"
+                steps.append(
+                    {
+                        "step": step_num,
+                        "thought": f"pmfby_claim_deadline_check failed: {err}",
+                        "action": "pmfby_claim_deadline_check_failed",
+                        "action_input": {"loss_timestamp": loss_ts_text},
+                        "observation": deadline_error,
+                    }
+                )
+                step_num += 1
+
+        # Check if knowledge search is needed
         needs_search = (
-            "hailstorm" in q_lower
-            or "loss" in q_lower
+            calc_result is None
+            or "hailstorm" in q_lower
             or "inform" in q_lower
             or "channel" in q_lower
-            or "deadline" in q_lower
-            or "when" in q_lower
-            or "how" in q_lower
             or "covered" in q_lower
-            or "harvest" in q_lower
             or "post-harvest" in q_lower
+            or "cut-and-spread" in q_lower
             or "prevented" in q_lower
             or "version" in q_lower
-            or "2016" in q_lower
-            or "revamped" in q_lower
-            or calc_result is None
+            or "difference" in q_lower
         )
 
         search_result: Optional[Dict[str, Any]] = None
-        if needs_search:
-            thought = f"Searching PMFBY knowledge base for relevant guidelines on: '{query}'."
-            search_result = pmfby_knowledge_search(query, top_k=3)
-            tools_called.append("pmfby_knowledge_search")
-            steps.append(
-                {
-                    "step": step_num,
-                    "thought": thought,
-                    "action": "pmfby_knowledge_search",
-                    "action_input": {"query": query, "top_k": 3},
-                    "observation": f"Retrieved {len(search_result['hits'])} guideline passages.",
-                }
-            )
-            step_num += 1
-
-            for hit in search_result.get("hits", []):
-                citations.append(
+        if needs_search and step_num <= self.max_iterations:
+            thought = f"Searching PMFBY knowledge base for guidelines regarding: '{query}'."
+            try:
+                search_result = pmfby_knowledge_search(query, top_k=3)
+                tools_called.append("pmfby_knowledge_search")
+                steps.append(
                     {
-                        "source": hit.get("source"),
-                        "page": hit.get("page"),
-                        "title": hit.get("title"),
-                        "score": hit.get("score"),
+                        "step": step_num,
+                        "thought": thought,
+                        "action": "pmfby_knowledge_search",
+                        "action_input": {"query": query, "top_k": 3},
+                        "observation": f"Retrieved {len(search_result['hits'])} guideline passages.",
                     }
                 )
+                step_num += 1
 
-        # Check deadline helper if hailstorm or localized calamity intimation is asked
-        deadline_info: Optional[Dict[str, Any]] = None
-        if any(term in q_lower for term in ("hailstorm", "yesterday", "9 pm", "inundation", "landslide")) and "inform" in q_lower:
-            thought = "User inquiry asks about localized calamity reporting deadline. Checking 72-hour claim window."
-            deadline_info = pmfby_claim_deadline_check("2026-11-16 21:00:00")
-            tools_called.append("pmfby_claim_deadline_check")
-            steps.append(
-                {
-                    "step": step_num,
-                    "thought": thought,
-                    "action": "pmfby_claim_deadline_check",
-                    "action_input": {"loss_timestamp": "9 pm yesterday", "window_hours": 72},
-                    "observation": "Intimation window is 72 hours from loss occurrence.",
-                }
-            )
-            step_num += 1
+                for hit in search_result.get("hits", []):
+                    citations.append(
+                        {
+                            "source": hit.get("source"),
+                            "page": hit.get("page"),
+                            "title": hit.get("title"),
+                            "score": hit.get("score"),
+                        }
+                    )
+            except Exception as err:
+                steps.append(
+                    {
+                        "step": step_num,
+                        "thought": f"Knowledge search failed: {err}",
+                        "action": "pmfby_knowledge_search_failed",
+                        "action_input": {"query": query},
+                        "observation": str(err),
+                    }
+                )
+                step_num += 1
 
-        # Synthesize final answer from observations
+        # Synthesize final answer from truthful tool outputs
         answer_parts: List[str] = []
 
         if calc_result:
             answer_parts.append(
-                f"**Premium Calculation:**\n"
+                f"**PMFBY Premium Calculation:**\n"
                 f"- **Sum Insured:** ₹{calc_result['sum_insured']:,.2f} "
-                f"(₹{calc_result['scale_of_finance_per_ha']:,.2f}/ha × {calc_result['area_ha']:.2f} ha)\n"
-                f"- **Farmer Premium Rate:** {calc_result['farmer_rate_percent']:.1f}% "
+                f"(Scale of finance: ₹{calc_result['scale_of_finance_per_ha']:,.2f}/ha × {calc_result['area_ha']:.2f} ha)\n"
+                f"- **Farmer Premium Rate:** {calc_result['farmer_rate_percent']:.2f}% "
                 f"({calc_result['season'].title()} {calc_result['crop'].title()})\n"
-                f"- **Farmer Premium Share:** **₹{calc_result['farmer_premium']:,.2f}**\n"
+                f"- **{'Estimated Maximum ' if calc_result['is_estimated_maximum'] else ''}Farmer Premium Share:** **₹{calc_result['farmer_premium']:,.2f}**\n"
+                f"- *Rate Basis:* {calc_result['rate_note']}\n"
                 f"- *Governing Rule:* {calc_result['rule_reference']['rule_topic']} "
                 f"({calc_result['rule_reference']['og_version']})"
             )
+        elif calc_error:
+            answer_parts.append(f"**Premium Calculation:**\n{calc_error}")
 
-        if deadline_info or ("inform" in q_lower and "channel" in q_lower):
-            channels_str = ", ".join(
-                [
-                    "Crop Insurance App",
-                    "Krishi Rakshak Helpline (14447)",
-                    "Concerned Insurance Company Toll-Free",
-                    "Bank Branch / PACS",
-                    "Local Agriculture Office",
-                ]
+        if deadline_info:
+            channels_str = ", ".join(deadline_info["reporting_channels"])
+            status_str = f"{deadline_info['remaining_hours']} hours remaining" if not deadline_info["is_expired"] else "Deadline has expired"
+            answer_parts.append(
+                f"**Localized Calamity Intimation (72-Hour Rule):**\n"
+                f"- **Loss Event:** {deadline_info['loss_timestamp']}\n"
+                f"- **Intimation Deadline:** **{deadline_info['deadline_timestamp']}** ({status_str})\n"
+                f"- **Reporting Channels:** {channels_str}\n"
+                f"- *Governing Rule:* {deadline_info['og_version']}"
             )
+        elif "inform" in q_lower and "channel" in q_lower:
             answer_parts.append(
                 f"**Intimation Deadline & Reporting Channels:**\n"
-                f"- **Deadline:** You must intimate the loss within **72 hours** of the calamity "
-                f"(under Revamped Operational Guidelines, Para 15.1.2).\n"
-                f"- **Reporting Channels:** {channels_str}."
+                f"- **Statutory Window:** Localized calamity loss must be reported within **72 hours** of occurrence (Revamped OG, Para 15.1.2).\n"
+                f"- **Authorized Channels:** Crop Insurance App, Toll-Free Helpline (14447), Bank Branch / PACS, or Agriculture Officer."
             )
         elif search_result and search_result.get("hits"):
             top_hit = search_result["hits"][0]
@@ -267,12 +402,11 @@ class HandwrittenAgent:
 
         if not answer_parts:
             answer_parts.append(
-                "Based on PMFBY guidelines, please consult your local agriculture officer "
-                "or call the toll-free helpline at 14447 for personalized assistance."
+                "Please consult pmfby.gov.in or your local agriculture office / helpline 14447 for official advice."
             )
 
         final_answer = "\n\n".join(answer_parts)
-        confidence = 0.95 if calc_result or (search_result and search_result.get("hits")) else 0.5
+        confidence = 0.95 if calc_result or deadline_info or (search_result and search_result.get("hits")) else 0.5
 
         return {
             "query": query,
@@ -281,12 +415,16 @@ class HandwrittenAgent:
             "tools_called": tools_called,
             "citations": citations,
             "confidence": confidence,
+            "status": "completed",
             "disclaimer": DISCLAIMER,
         }
 
 
-def run_agent_loop(query: str, max_iterations: int = 4) -> Dict[str, Any]:
+def run_agent_loop(
+    query: str,
+    max_iterations: int = 5,
+    clock_now: Optional[datetime] = None,
+) -> Dict[str, Any]:
     """Execute the hand-written agent loop on a user query."""
-    agent = HandwrittenAgent(max_iterations=max_iterations)
+    agent = HandwrittenAgent(max_iterations=max_iterations, clock_now=clock_now)
     return agent.run(query)
-
