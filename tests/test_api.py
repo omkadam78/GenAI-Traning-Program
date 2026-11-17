@@ -250,3 +250,142 @@ def test_day8_rag_ask_and_eval_suite():
     assert "Config A" in readme
     assert "Config B" in readme
     assert "WINNER" in readme
+
+
+def test_day9_tools_pmfby_premium():
+    from app.tools import pmfby_claim_deadline_check, pmfby_knowledge_search, pmfby_premium
+
+    # 1. Kharif Soybean (2.0%)
+    res_soy = pmfby_premium(scale_of_finance=49000, area=1.2, crop="soybean", season="kharif")
+    assert res_soy["sum_insured"] == 58800.0
+    assert res_soy["farmer_rate_percent"] == 2.0
+    assert res_soy["farmer_premium"] == 1176.0
+    assert "₹58,800.00" in res_soy["breakdown"]
+
+    # 2. Rabi Wheat (1.5%)
+    res_wheat = pmfby_premium(scale_of_finance=40000, area=2.0, crop="wheat", season="rabi")
+    assert res_wheat["sum_insured"] == 80000.0
+    assert res_wheat["farmer_rate_percent"] == 1.5
+    assert res_wheat["farmer_premium"] == 1200.0
+
+    # 3. Commercial Cotton (5.0%)
+    res_cotton = pmfby_premium(scale_of_finance=60000, area=1.0, crop="cotton")
+    assert res_cotton["sum_insured"] == 60000.0
+    assert res_cotton["farmer_rate_percent"] == 5.0
+    assert res_cotton["farmer_premium"] == 3000.0
+
+    # 4. Search tool returns results
+    search_res = pmfby_knowledge_search("hailstorm localized calamity", top_k=2)
+    assert search_res["count"] >= 1
+
+    # 5. Deadline check tool returns 72 hours window
+    dl = pmfby_claim_deadline_check("2026-11-16 21:00:00")
+    assert dl["window_hours"] == 72
+    assert len(dl["reporting_channels"]) >= 3
+
+
+def test_day9_handwritten_agent_loop():
+    from app.agent_loop import run_agent_loop
+
+    # Test Q4 compound inquiry
+    q4 = "Hailstorm hit my 1.2 ha soybean at 9 pm yesterday. By when must I inform, through which channels, and what premium did I pay if the scale of finance is Rs 49,000 per ha?"
+    res4 = run_agent_loop(q4)
+    assert "pmfby_premium" in res4["tools_called"]
+    assert len(res4["steps"]) >= 2
+    assert "1,176" in res4["answer"] or "1176" in res4["answer"]
+    assert "72 hours" in res4["answer"].lower()
+
+    # Test Q6 strict refusal
+    q6 = "Has my PMFBY claim for kharif 2025 been approved?"
+    res6 = run_agent_loop(q6)
+    assert "i don't know" in res6["answer"].lower()
+    assert res6["confidence"] == 0.0
+
+
+def test_day9_langgraph_memory_and_approval_step():
+    from app.graph import run_langgraph_agent
+
+    thread_id = "pytest_farmer_session_99"
+    calc_query = "Please calculate PMFBY premium for 1.2 ha soybean with scale of finance Rs 49,000 per ha"
+
+    # Turn 1: Submit query without approval -> must halt and require approval
+    t1 = run_langgraph_agent(query=calc_query, thread_id=thread_id)
+    assert t1["status"] == "approval_required"
+    assert t1["requires_approval"] is True
+    assert "Approval Required" in t1["answer"]
+
+    # Turn 2: Resume with approved=True on same thread -> completes calculation from memory
+    t2 = run_langgraph_agent(thread_id=thread_id, approved=True)
+    assert t2["status"] == "completed"
+    assert t2["requires_approval"] is False
+    assert "1,176" in t2["answer"] or "1176" in t2["answer"]
+
+    # Test general knowledge query does not require approval
+    t_kb = run_langgraph_agent(query="What is the claim intimation timeline for localized calamities?", thread_id="kb_thread")
+    assert t_kb["status"] == "completed"
+    assert t_kb["requires_approval"] is False
+    assert len(t_kb["answer"]) > 10
+
+    # Test Q6 refusal in LangGraph
+    t_ref = run_langgraph_agent(query="Has my PMFBY claim for kharif 2025 been approved?", thread_id="ref_thread")
+    assert t_ref["status"] == "completed"
+    assert "i don't know" in t_ref["answer"].lower()
+    assert t_ref["confidence"] == 0.0
+
+
+def test_day9_api_agent_endpoint():
+    # 1. Handwritten agent via API
+    res_hw = client.post(
+        "/agent",
+        json={
+            "query": "Hailstorm hit my 1.2 ha soybean at 9 pm yesterday. What premium did I pay if the scale of finance is Rs 49,000 per ha?",
+            "agent_type": "handwritten",
+        },
+    )
+    assert res_hw.status_code == 200
+    hw_body = res_hw.json()
+    assert hw_body["agent_type"] == "handwritten"
+    assert "1,176" in hw_body["answer"] or "1176" in hw_body["answer"]
+
+    # 2. LangGraph agent via API: Turn 1 approval required
+    thread_id = "api_test_approval_thread"
+    res_lg1 = client.post(
+        "/agent",
+        json={
+            "query": "Calculate premium for 1.2 ha soybean at scale of finance Rs 49,000",
+            "thread_id": thread_id,
+            "agent_type": "langgraph",
+        },
+    )
+    assert res_lg1.status_code == 200
+    lg1_body = res_lg1.json()
+    assert lg1_body["status"] == "approval_required"
+    assert lg1_body["requires_approval"] is True
+
+    # 3. LangGraph agent via API: Turn 2 approved=True resumes from memory
+    res_lg2 = client.post(
+        "/agent",
+        json={
+            "thread_id": thread_id,
+            "approved": True,
+            "agent_type": "langgraph",
+        },
+    )
+    assert res_lg2.status_code == 200
+    lg2_body = res_lg2.json()
+    assert lg2_body["status"] == "completed"
+    assert lg2_body["requires_approval"] is False
+    assert "1,176" in lg2_body["answer"] or "1176" in lg2_body["answer"]
+
+    # 4. LangGraph agent Q6 refusal
+    res_q6 = client.post(
+        "/agent",
+        json={
+            "query": "Has my PMFBY claim for kharif 2025 been approved?",
+            "thread_id": "api_q6_thread",
+            "agent_type": "langgraph",
+        },
+    )
+    assert res_q6.status_code == 200
+    assert "i don't know" in res_q6.json()["answer"].lower()
+

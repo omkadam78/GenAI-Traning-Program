@@ -102,6 +102,21 @@ ALL_STAGES = [
             "push_to_github.py",
         ],
     },
+    {
+        "id": "day-09",
+        "message": "day-09: add agent tools, handwritten loop, LangGraph with memory and approval step, and POST /agent",
+        "tag": None,
+        "files": [
+            "app/tools.py",
+            "app/agent_loop.py",
+            "app/graph.py",
+            "app/main.py",
+            "README.md",
+            "requirements.txt",
+            "tests/test_api.py",
+            "push_to_github.py",
+        ],
+    },
 ]
 
 

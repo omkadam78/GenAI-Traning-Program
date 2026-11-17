@@ -1,9 +1,11 @@
-"""FastAPI service for FasalBima Sathi (Days 4–8)."""
+"""FastAPI service for FasalBima Sathi (Days 4–9)."""
 import re
 
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from app.agent_loop import run_agent_loop
+from app.graph import run_langgraph_agent
 from app.llm import generate_chat_response
 from app.rag import ask_rag
 from app.records import get_by_id, load_records
@@ -28,8 +30,8 @@ OUT_OF_SCOPE_PATTERNS = (
 
 app = FastAPI(
     title="FasalBima Sathi API",
-    description="PMFBY crop insurance assistant with rule lookup, LLM chat, and Chroma RAG.",
-    version="0.8.0",
+    description="PMFBY crop insurance assistant with rule lookup, LLM chat, Chroma RAG, and LangGraph agent.",
+    version="0.9.0",
 )
 
 
@@ -52,6 +54,17 @@ class AskRequest(BaseModel):
     question: str = Field(..., min_length=1, description="Farmer crop insurance question")
     top_k: int = Field(default=3, ge=1, le=10)
     prompt_version: str = Field(default="v2", pattern="^(v1|v2)$")
+
+
+class AgentRequest(BaseModel):
+    query: str | None = Field(default=None, description="Farmer query or calculation request")
+    thread_id: str = Field(default="default_thread", description="Thread ID for stateful agent memory")
+    approved: bool | None = Field(default=None, description="Approval flag for human-in-the-loop confirmation")
+    agent_type: str = Field(
+        default="langgraph",
+        pattern="^(langgraph|handwritten)$",
+        description="Agent implementation: 'langgraph' (with memory & approval) or 'handwritten'",
+    )
 
 
 def _is_personal_status_query(question: str) -> bool:
@@ -190,3 +203,26 @@ def ask(payload: AskRequest):
         top_k=payload.top_k,
         prompt_version=payload.prompt_version,
     )
+
+
+@app.post("/agent")
+def agent(payload: AgentRequest):
+    """Day 9 endpoint: PMFBY agent with memory and human-in-the-loop approval step."""
+    if payload.agent_type == "handwritten":
+        if not payload.query:
+            raise HTTPException(status_code=400, detail="query is required for handwritten agent")
+        result = run_agent_loop(payload.query)
+        result["thread_id"] = payload.thread_id
+        result["agent_type"] = "handwritten"
+        result["status"] = "completed"
+        result["requires_approval"] = False
+        return result
+
+    result = run_langgraph_agent(
+        query=payload.query,
+        thread_id=payload.thread_id,
+        approved=payload.approved,
+    )
+    result["agent_type"] = "langgraph"
+    return result
+

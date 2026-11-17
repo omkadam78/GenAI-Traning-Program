@@ -21,7 +21,7 @@ Farmers often face difficulty understanding crop insurance guidelines, premium c
 - https://pmfby.gov.in/pdf/Revamped%20OGs_Final.pdf
 - https://pmfby.gov.in/pdf/Revised_Operational_Guidelines.pdf
 
-## Current Progress (Days 1–8)
+## Current Progress (Days 1–9)
 - **Day 1**: Python intro (`day01_intro.py`) and interactive menu (`day01_menu.py`).
 - **Day 2**: 20 starter PMFBY records (`data/sample_records.py`), reusable record utilities (`app/records.py`), and terminal CLI (`app/cli.py`).
 - **Day 3**: Official source downloader with manifest (`app/fetch.py`), `Record` dataclass (`app/models.py`), and PDF/HTML ingestion pipeline (`app/ingest.py` -> `data/records.json`).
@@ -30,6 +30,27 @@ Farmers often face difficulty understanding crop insurance guidelines, premium c
 - **Day 6**: LLM provider wrapper supporting Groq & Gemini with offline rule fallback (`app/llm.py`), prompt engineering templates (`prompts/system_prompt.txt`, `prompts/task_v1_concise.txt`, `prompts/task_v2_detailed.txt`), `POST /chat` returning structured JSON (`answer`, `confidence`, `follow_up`), configuration template (`.env.example`), and evaluation report comparing both prompt versions (`eval/prompt_compare.md`).
 - **Day 7**: Document chunking pipeline preserving source, page, and title (`app/chunking.py`), dense semantic embedding utilities (`app/embed.py`), persistent Chroma vectorstore (`app/vectorstore.py` with 1,786 indexed chunks), `GET /search/semantic` endpoint, and semantic evaluation report on 10 questions (`eval/search_results.md`).
 - **Day 8**: Grounded RAG engine with strict citations and personal claim refusal (`app/rag.py`), `POST /ask` endpoint, 15-question evaluation suite (`eval/eval_set.json`), dual-configuration experiment script (`eval/run_eval.py`), and configuration winner table below.
+- **Day 9**: Agent tools (`app/tools.py` with `pmfby_premium` pure arithmetic calculation, `pmfby_knowledge_search`, and `pmfby_claim_deadline_check`), hand-written ReAct-style agent loop (`app/agent_loop.py`), stateful LangGraph agent with conversation memory (`MemorySaver`) and human-in-the-loop approval step (`app/graph.py`), and unified `POST /agent` endpoint.
+
+## Day 9: Agent Tools, Hand-Written Loop & LangGraph
+
+### 1. Pure Arithmetic Premium Tool (`app/tools.py`)
+Calculates PMFBY sum insured and farmer premium share using official rates from `data/records.json`:
+- **Sum Insured**: $\text{Scale of Finance} \times \text{Insured Area (ha)}$
+- **Farmer Premium Rate**:
+  - Kharif food grains & oilseeds (e.g. Soybean): **2.0%**
+  - Rabi food grains & oilseeds (e.g. Wheat): **1.5%**
+  - Annual commercial & horticultural crops (e.g. Cotton): **5.0%**
+- **Farmer Premium Share**: $\text{Sum Insured} \times \text{Rate \%}$
+
+### 2. Hand-Written Agent Loop (`app/agent_loop.py`)
+A pure Python ReAct loop that coordinates multi-step inquiries, tool calling, and observation tracking without third-party frameworks. Automatically combines premium calculations with localized calamity intimation guidance for compound queries (e.g., Question 4).
+
+### 3. Stateful LangGraph with Memory & Approval Step (`app/graph.py`)
+Rebuilds the agent inside a stateful `StateGraph`:
+- **Memory**: Persistent checkpointer (`MemorySaver`) preserving context across turns via `thread_id`.
+- **Human-in-the-Loop Approval**: Financial calculations and formal premium estimations require explicit user confirmation before execution (`requires_approval = True`, `status = "approval_required"`). Upon sending `approved = True` on the same `thread_id`, the agent resumes from memory and finalizes the calculation.
+- **Strict Safeguard**: Intercepts unanswerable personal claim status questions (Q6 & Q15) with `"I don't know"`.
 
 ## RAG Evaluation: 2 Configurations Comparison (Day 8)
 
@@ -89,12 +110,35 @@ Available endpoints:
 - `POST /questions`: Day 4 TF-IDF rule lookup
 - `POST /chat`: Day 6 prompt-engineered LLM chat (`message`, `prompt_version`)
 - `POST /ask`: Day 8 grounded RAG endpoint answering questions from retrieved chunks with citations (strictly refuses private claim queries with `"I don't know"`)
+- `POST /agent`: Day 9 agent endpoint supporting both LangGraph (with memory + approval step) and hand-written agent loops
 
-Example `/ask` request:
+Example 1: LangGraph Agent with Approval Step (`POST /agent`):
 ```json
+// Turn 1: Request calculation
+POST /agent
 {
-  "question": "Hailstorm hit my 1.2 ha soybean at 9 pm yesterday. By when must I inform?",
-  "top_k": 3
+  "query": "Calculate premium for 1.2 ha soybean at scale of finance Rs 49,000 per ha",
+  "thread_id": "session_101",
+  "agent_type": "langgraph"
+}
+// Response: {"status": "approval_required", "requires_approval": true, "answer": "Approval Required: Please confirm calculation..."}
+
+// Turn 2: User confirms approval
+POST /agent
+{
+  "thread_id": "session_101",
+  "approved": true,
+  "agent_type": "langgraph"
+}
+// Response: {"status": "completed", "requires_approval": false, "answer": "PMFBY Premium Calculation (Confirmed): Sum Insured: ₹58,800.00, Farmer Premium Share: ₹1,176.00..."}
+```
+
+Example 2: Hand-written Agent Loop (`POST /agent`):
+```json
+POST /agent
+{
+  "query": "Hailstorm hit my 1.2 ha soybean at 9 pm yesterday. By when must I inform, through which channels, and what premium did I pay if the scale of finance is Rs 49,000 per ha?",
+  "agent_type": "handwritten"
 }
 ```
 
