@@ -1,10 +1,12 @@
-"""LangGraph agent for FasalBima Sathi with Memory and Approval Step (Day 9).
+"""LangGraph agent for FasalBima Sathi with Memory and Approval Step (Days 9 & 10).
 
 Rebuilds the PMFBY assistant into a stateful LangGraph workflow featuring:
 1. Intent classification & RAG search
 2. Pure arithmetic PMFBY premium tool integration with Decimal precision
 3. Stateful conversation memory via LangGraph MemorySaver
-4. Strict human-in-the-loop approval step with parameter binding, cancellation, and replay protection
+4. Native LangGraph interrupt() and Command(resume=...) human-in-the-loop approval step
+5. Strict parameter binding to immutable calculation ID, cancellation, and replay protection
+6. Compound query handling answering every supported part (premium, deadline, channels)
 
 Note on Memory:
 Uses LangGraph MemorySaver for in-memory session checkpointing across conversation turns.
@@ -20,8 +22,14 @@ import zoneinfo
 
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
+from langgraph.types import Command, interrupt
 
-from app.agent_loop import OUT_OF_SCOPE_PATTERNS, _is_out_of_scope, extract_premium_params
+from app.agent_loop import (
+    OUT_OF_SCOPE_PATTERNS,
+    _is_out_of_scope,
+    extract_loss_timestamp_text,
+    extract_premium_params,
+)
 from app.tools import (
     IST,
     pmfby_claim_deadline_check,
@@ -39,87 +47,63 @@ class AgentState(TypedDict, total=False):
     """LangGraph state representation for PMFBY agent."""
     thread_id: str
     query: str
-    intent: str  # "refusal", "premium_calc", "knowledge_search", "approval_resume", "approval_cancel"
+    intent: str  # "refusal", "premium_calc", "knowledge_search", "compound", "clarification"
     pending_calculation: Optional[Dict[str, Any]]
     requires_approval: bool
-    approved: Optional[bool]
+    compound_deadline: Optional[Dict[str, Any]]
     tool_calls: List[Dict[str, Any]]
     steps: List[str]
     citations: List[Dict[str, Any]]
-    status: str  # "completed", "approval_required", "cancelled", "rejected", "clarification_needed"
+    status: str  # "completed", "approval_required", "cancelled", "rejected", "clarification_needed", "error"
     answer: str
     confidence: float
 
 
 def classify_node(state: AgentState) -> Dict[str, Any]:
-    """Classify farmer query intent and manage approval lifecycle."""
+    """Classify farmer query intent and manage calculation / knowledge dispatch."""
     query = (state.get("query") or "").strip()
     thread_id = state.get("thread_id") or f"session_{uuid.uuid4().hex[:12]}"
-    approved_flag = state.get("approved")
-    pending_calc = state.get("pending_calculation")
+    q_low = query.casefold()
 
-    # Start fresh request-level traces
+    # Reset request-specific traces for fresh turn
     steps: List[str] = []
     tool_calls: List[Dict[str, Any]] = []
     citations: List[Dict[str, Any]] = []
 
-    # Case A: User is submitting an approval confirmation (approved=True) or cancellation (approved=False)
-    if approved_flag is False:
-        steps.append("Received approval cancellation (approved=False) -> Route to cancel")
-        return {
-            "thread_id": thread_id,
-            "intent": "approval_cancel",
-            "requires_approval": False,
-            "pending_calculation": None,
-            "approved": None,
-            "status": "cancelled",
-            "answer": "Calculation cancelled as requested. No tools were executed and no records were submitted.",
-            "confidence": 1.0,
-            "steps": steps,
-            "tool_calls": [],
-            "citations": [],
-        }
-
-    if approved_flag is True:
-        if pending_calc is None:
-            steps.append("Received approval without an active pending calculation -> Route to rejection")
-            return {
-                "thread_id": thread_id,
-                "intent": "approval_rejected",
-                "requires_approval": False,
-                "approved": None,
-                "status": "rejected",
-                "answer": "No pending calculation found to approve on this session. Please submit your crop, area, and scale of finance first.",
-                "confidence": 0.0,
-                "steps": steps,
-                "tool_calls": [],
-                "citations": [],
-            }
-
-        steps.append(f"Received user approval for calculation ID '{pending_calc.get('id')}'. Proceeding to execution.")
-        return {
-            "thread_id": thread_id,
-            "intent": "approval_resume",
-            "requires_approval": False,
-            "approved": None,
-            "steps": steps,
-            "tool_calls": [],
-            "citations": [],
-        }
-
-    # Case B: Out-of-scope check (Strict Q6 mandate)
+    # Case A: Out-of-scope check (Strict Q6 mandate)
     if _is_out_of_scope(query):
         steps.append("Classified query as out-of-scope personal claim/bank status -> Route to refusal")
         return {
             "thread_id": thread_id,
             "intent": "refusal",
             "requires_approval": False,
+            "pending_calculation": None,
+            "compound_deadline": None,
             "steps": steps,
             "tool_calls": [],
             "citations": [],
         }
 
-    # Case C: Check if a NEW calculation is requested
+    # Check for deadline / calamity intimation in compound or standalone queries
+    loss_ts_text = extract_loss_timestamp_text(query)
+    compound_deadline: Optional[Dict[str, Any]] = None
+    if loss_ts_text and any(t in q_low for t in ("hailstorm", "loss", "calamity", "inundation", "landslide", "inform", "deadline", "hours")):
+        try:
+            deadline_res = pmfby_claim_deadline_check(loss_timestamp=loss_ts_text, window_hours=72)
+            tool_calls.append({
+                "tool": "pmfby_claim_deadline_check",
+                "input": {"loss_timestamp": loss_ts_text, "window_hours": 72},
+                "output": deadline_res,
+            })
+            steps.append(
+                f"Tool executed: pmfby_claim_deadline_check -> Deadline: {deadline_res['deadline_timestamp']}, "
+                f"remaining: {deadline_res['remaining_hours']}h"
+            )
+            compound_deadline = deadline_res
+        except Exception as err:
+            steps.append(f"Deadline check skipped: {err}")
+
+    # Case B: Check if calculation is intended
     calc_params = extract_premium_params(query)
     if calc_params["is_calc_intent"]:
         missing = []
@@ -132,23 +116,30 @@ def classify_node(state: AgentState) -> Dict[str, Any]:
 
         if missing:
             steps.append(f"Calculation requested but missing inputs: {missing} -> Route to clarification")
-            clarification_msg = (
-                f"To calculate your PMFBY premium, please specify: {', '.join(missing)}."
-            )
+            clarification_msg = f"To calculate your PMFBY premium, please specify: {', '.join(missing)}."
+            if compound_deadline:
+                clarification_msg = (
+                    f"**Localized Calamity Intimation (72-Hour Rule):**\n"
+                    f"- **Intimation Deadline:** {compound_deadline['deadline_timestamp']} "
+                    f"({compound_deadline['remaining_hours']} hours remaining)\n"
+                    f"- **Reporting Channels:** {', '.join(compound_deadline['reporting_channels'])}\n\n"
+                    f"{clarification_msg}"
+                )
             return {
                 "thread_id": thread_id,
                 "intent": "clarification",
                 "requires_approval": False,
                 "pending_calculation": None,
+                "compound_deadline": compound_deadline,
                 "status": "clarification_needed",
                 "answer": clarification_msg,
                 "confidence": 0.5,
                 "steps": steps,
-                "tool_calls": [],
+                "tool_calls": tool_calls,
                 "citations": [],
             }
 
-        # Bind parameters to exact pending calculation ID
+        # Bind parameters to exact immutable pending calculation ID
         calc_id = f"calc_{uuid.uuid4().hex[:8]}"
         new_pending = {
             "id": calc_id,
@@ -158,29 +149,31 @@ def classify_node(state: AgentState) -> Dict[str, Any]:
 
         steps.append(
             f"Created pending calculation '{calc_id}' for {calc_params['crop'].title()} "
-            f"({calc_params['area']} {calc_params['unit']}, ₹{calc_params['scale_of_finance']}/ha). "
-            f"Resetting approval -> Route to approval gate."
+            f"({calc_params['area']} {calc_params.get('area_unit', 'ha')}, ₹{calc_params['scale_of_finance']}/{calc_params.get('scale_of_finance_unit', 'per_ha')}). "
+            f"Routing to approval gate."
         )
 
         return {
             "thread_id": thread_id,
             "intent": "premium_calc",
             "pending_calculation": new_pending,
-            "approved": None,  # Always reset approval for every NEW calculation
+            "compound_deadline": compound_deadline,
             "requires_approval": True,
             "steps": steps,
-            "tool_calls": [],
+            "tool_calls": tool_calls,
             "citations": [],
         }
 
-    # Case D: New Knowledge search question (does NOT reuse old calculation parameters)
+    # Case C: Knowledge search / policy question (does NOT reuse old calculation parameters)
     steps.append("Classified query as PMFBY guideline / policy question -> Route to knowledge search")
     return {
         "thread_id": thread_id,
         "intent": "knowledge_search",
+        "pending_calculation": None,  # Ensure fresh knowledge queries never inherit old calc params
+        "compound_deadline": compound_deadline,
         "requires_approval": False,
         "steps": steps,
-        "tool_calls": [],
+        "tool_calls": tool_calls,
         "citations": [],
     }
 
@@ -188,17 +181,15 @@ def classify_node(state: AgentState) -> Dict[str, Any]:
 def route_intent(state: AgentState) -> str:
     """Conditional edge router based on classified intent."""
     intent = state.get("intent")
-    if intent in {"refusal", "approval_rejected", "approval_cancel", "clarification"}:
+    if intent in {"refusal", "clarification"}:
         return "terminal_response_node"
     if intent == "premium_calc":
         return "approval_gate_node"
-    if intent == "approval_resume":
-        return "premium_execution_node"
     return "search_node"
 
 
 def terminal_response_node(state: AgentState) -> Dict[str, Any]:
-    """Return terminal responses (refusals, cancellations, clarifications)."""
+    """Return terminal responses (refusals, clarifications)."""
     intent = state.get("intent")
     steps = list(state.get("steps", []))
 
@@ -216,7 +207,6 @@ def terminal_response_node(state: AgentState) -> Dict[str, Any]:
             "steps": steps,
         }
 
-    # For other terminal states (cancelled, rejected, clarification), state answer is already set
     return {
         "status": state.get("status", "completed"),
         "requires_approval": False,
@@ -227,53 +217,98 @@ def terminal_response_node(state: AgentState) -> Dict[str, Any]:
 
 
 def approval_gate_node(state: AgentState) -> Dict[str, Any]:
-    """Human-in-the-loop approval pause for financial calculations."""
+    """Human-in-the-loop approval pause for financial calculations using LangGraph interrupt()."""
     pending = state.get("pending_calculation") or {}
     params = pending.get("params") or {}
+    calc_id = pending.get("id")
     steps = list(state.get("steps", []))
+    tool_calls = list(state.get("tool_calls", []))
+    compound_deadline = state.get("compound_deadline")
 
-    steps.append(f"Approval gate: Pausing for user confirmation on calculation ID '{pending.get('id')}'.")
-    area_str = f"{params.get('area')} {params.get('unit', 'ha')}"
-    sof_str = f"₹{params.get('scale_of_finance', 0):,.2f}/ha"
+    area_str = f"{params.get('area')} {params.get('area_unit', params.get('unit', 'ha'))}"
+    sof_unit = "per acre" if params.get("scale_of_finance_unit") == "per_acre" else "per ha"
+    sof_str = f"₹{params.get('scale_of_finance', 0):,.2f}/{sof_unit}"
     crop_str = str(params.get("crop", "crop")).title()
-    season_str = str(params.get("season", "Not specified")).title()
+    season_str = str(params.get("season") or "Statutory Rate").title()
 
-    answer = (
+    prompt_parts = []
+    if compound_deadline:
+        prompt_parts.append(
+            f"**Localized Calamity Intimation (72-Hour Rule):**\n"
+            f"- **Statutory Window:** Must be intimated within **72 hours** of loss occurrence.\n"
+            f"- **Loss Event:** {compound_deadline['loss_timestamp']}\n"
+            f"- **Intimation Deadline:** **{compound_deadline['deadline_timestamp']}** ({compound_deadline['remaining_hours']}h remaining)\n"
+            f"- **Reporting Channels:** {', '.join(compound_deadline['reporting_channels'])}\n"
+            f"- *Governing Rule:* {compound_deadline['og_version']}\n"
+        )
+
+    prompt_parts.append(
         f"**Approval Required for PMFBY Calculation:**\n"
-        f"- **Calculation ID:** `{pending.get('id')}`\n"
+        f"- **Calculation ID:** `{calc_id}`\n"
         f"- **Crop:** {crop_str}\n"
         f"- **Season:** {season_str}\n"
         f"- **Area:** {area_str}\n"
         f"- **Scale of Finance:** {sof_str}\n\n"
-        f"To proceed, submit with `approved: true` on session `{state.get('thread_id')}`. "
-        f"To cancel, submit with `approved: false`."
+        f"To proceed, approve with `approved: true`. To cancel, submit with `approved: false`."
     )
+    prompt_answer = "\n".join(prompt_parts)
 
-    return {
-        "status": "approval_required",
-        "requires_approval": True,
-        "confidence": 0.8,
-        "answer": answer,
-        "steps": steps,
+    interrupt_payload = {
+        "calculation_id": calc_id,
+        "params": params,
+        "message": prompt_answer,
     }
 
+    steps.append(f"Approval gate: Calling interrupt() for calculation ID '{calc_id}'. Pausing graph.")
 
-def premium_execution_node(state: AgentState) -> Dict[str, Any]:
-    """Execute pmfby_premium tool using the exact parameters bound to pending calculation."""
-    pending = state.get("pending_calculation") or {}
-    params = pending.get("params") or {}
-    query = state.get("query", "")
-    steps = list(state.get("steps", []))
-    tool_calls = list(state.get("tool_calls", []))
-    citations = list(state.get("citations", []))
+    # Native LangGraph interrupt: Pauses graph until resumed with Command(resume=...)
+    resume_payload = interrupt(interrupt_payload)
 
+    # When resumed via Command(resume=...), execution continues below
+    if not isinstance(resume_payload, dict):
+        resume_payload = {"approved": bool(resume_payload)}
+
+    is_approved = resume_payload.get("approved")
+    resume_calc_id = resume_payload.get("calculation_id")
+
+    # Rejection of calculation ID mismatch
+    if resume_calc_id and resume_calc_id != calc_id:
+        steps.append(
+            f"Approval rejected: ID mismatch (expected '{calc_id}', received '{resume_calc_id}')"
+        )
+        return {
+            "status": "rejected",
+            "requires_approval": False,
+            "pending_calculation": None,
+            "answer": f"Approval rejected: Calculation ID mismatch. Pending calculation is '{calc_id}', but approval requested '{resume_calc_id}'.",
+            "confidence": 0.0,
+            "steps": steps,
+            "tool_calls": tool_calls,
+        }
+
+    # User cancellation (approved=False): Must NOT execute the pending tool
+    if not is_approved:
+        steps.append(f"Received cancellation for calculation ID '{calc_id}'. No tools executed.")
+        return {
+            "status": "cancelled",
+            "requires_approval": False,
+            "pending_calculation": None,
+            "answer": "Calculation cancelled as requested. No tools were executed and no records were submitted.",
+            "confidence": 1.0,
+            "steps": steps,
+            "tool_calls": tool_calls,
+        }
+
+    # Approved (approved=True): Execute pmfby_premium tool using bound immutable parameters
+    steps.append(f"Received user approval for calculation ID '{calc_id}'. Executing pmfby_premium.")
     try:
         calc_res = pmfby_premium(
             scale_of_finance=params.get("scale_of_finance"),
             area=params.get("area"),
             crop=params.get("crop"),
             season=params.get("season"),
-            unit=params.get("unit", "ha"),
+            area_unit=params.get("area_unit", params.get("unit", "ha")),
+            scale_of_finance_unit=params.get("scale_of_finance_unit", "per_ha"),
             actuarial_rate=params.get("actuarial_rate"),
         )
         tool_calls.append({"tool": "pmfby_premium", "input": params, "output": calc_res})
@@ -292,10 +327,20 @@ def premium_execution_node(state: AgentState) -> Dict[str, Any]:
             "tool_calls": tool_calls,
         }
 
-    # Final answer formatting
-    final_answer = (
+    final_parts = []
+    if compound_deadline:
+        final_parts.append(
+            f"**Localized Calamity Intimation (72-Hour Rule):**\n"
+            f"- **Statutory Window:** Must be intimated within **72 hours** of loss occurrence.\n"
+            f"- **Loss Event:** {compound_deadline['loss_timestamp']}\n"
+            f"- **Intimation Deadline:** **{compound_deadline['deadline_timestamp']}** ({compound_deadline['remaining_hours']}h remaining)\n"
+            f"- **Reporting Channels:** {', '.join(compound_deadline['reporting_channels'])}\n"
+            f"- *Governing Rule:* {compound_deadline['og_version']}\n"
+        )
+
+    final_parts.append(
         f"**PMFBY Premium Calculation (Confirmed):**\n"
-        f"- **Calculation ID:** `{pending.get('id')}`\n"
+        f"- **Calculation ID:** `{calc_id}`\n"
         f"- **Sum Insured:** ₹{calc_res['sum_insured']:,.2f} "
         f"(₹{calc_res['scale_of_finance_per_ha']:,.2f}/ha × {calc_res['area_ha']:.2f} ha)\n"
         f"- **Farmer Premium Rate:** {calc_res['farmer_rate_percent']:.2f}% "
@@ -309,13 +354,11 @@ def premium_execution_node(state: AgentState) -> Dict[str, Any]:
     return {
         "status": "completed",
         "requires_approval": False,
-        "approved": None,  # Reset approved so subsequent requests start clean
         "pending_calculation": None,  # Cleared after execution to prevent replay
-        "answer": final_answer,
+        "answer": "\n".join(final_parts),
         "confidence": 0.95,
         "steps": steps,
         "tool_calls": tool_calls,
-        "citations": citations,
     }
 
 
@@ -325,6 +368,7 @@ def search_node(state: AgentState) -> Dict[str, Any]:
     steps = list(state.get("steps", []))
     tool_calls = list(state.get("tool_calls", []))
     citations = list(state.get("citations", []))
+    compound_deadline = state.get("compound_deadline")
 
     try:
         search_res = pmfby_knowledge_search(query, top_k=3)
@@ -341,16 +385,28 @@ def search_node(state: AgentState) -> Dict[str, Any]:
                 }
             )
 
+        answer_parts = []
+        if compound_deadline:
+            answer_parts.append(
+                f"**Localized Calamity Intimation (72-Hour Rule):**\n"
+                f"- **Loss Event:** {compound_deadline['loss_timestamp']}\n"
+                f"- **Intimation Deadline:** **{compound_deadline['deadline_timestamp']}** ({compound_deadline['remaining_hours']}h remaining)\n"
+                f"- **Reporting Channels:** {', '.join(compound_deadline['reporting_channels'])}\n"
+                f"- *Governing Rule:* {compound_deadline['og_version']}"
+            )
+
         if search_res.get("hits"):
             top_hit = search_res["hits"][0]
-            answer = f"**PMFBY Guidelines:**\n{top_hit['text']}\n\n*(Source: {top_hit['source']}, Page {top_hit['page']})*"
+            answer_parts.append(f"**PMFBY Guidelines:**\n{top_hit['text']}\n\n*(Source: {top_hit['source']}, Page {top_hit['page']})*")
             confidence = 0.9
         else:
-            answer = (
+            answer_parts.append(
                 "No specific matching PMFBY rule chunk found. Please consult "
                 "pmfby.gov.in or call 14447 for official clarification."
             )
             confidence = 0.4
+
+        answer = "\n\n".join(answer_parts)
     except Exception as err:
         answer = f"Knowledge base search encountered an error: {err}"
         confidence = 0.0
@@ -374,7 +430,6 @@ def build_pmfby_graph(checkpointer: Optional[Any] = None) -> Any:
     workflow.add_node("classify_node", classify_node)
     workflow.add_node("terminal_response_node", terminal_response_node)
     workflow.add_node("approval_gate_node", approval_gate_node)
-    workflow.add_node("premium_execution_node", premium_execution_node)
     workflow.add_node("search_node", search_node)
 
     # Add Edges
@@ -386,14 +441,12 @@ def build_pmfby_graph(checkpointer: Optional[Any] = None) -> Any:
         {
             "terminal_response_node": "terminal_response_node",
             "approval_gate_node": "approval_gate_node",
-            "premium_execution_node": "premium_execution_node",
             "search_node": "search_node",
         },
     )
 
     workflow.add_edge("terminal_response_node", END)
     workflow.add_edge("approval_gate_node", END)
-    workflow.add_edge("premium_execution_node", END)
     workflow.add_edge("search_node", END)
 
     cp = checkpointer if checkpointer is not None else MemorySaver()
@@ -409,20 +462,77 @@ def run_langgraph_agent(
     query: Optional[str] = None,
     thread_id: Optional[str] = None,
     approved: Optional[bool] = None,
+    calculation_id: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Run or resume the LangGraph agent across conversational turns with isolated memory."""
+    """Run or resume the LangGraph agent across conversational turns with isolated memory.
+
+    Uses LangGraph interrupt() and Command(resume=...) to pause and resume at the approval step.
+    State is persisted per thread_id in MemorySaver across turns in the process runtime.
+    """
     # Enforce unique conversation ID isolation; never share a global default thread
     active_thread = thread_id.strip() if thread_id and thread_id.strip() and thread_id not in {"default", "default_thread"} else f"session_{uuid.uuid4().hex[:12]}"
     config = {"configurable": {"thread_id": active_thread}}
 
-    input_payload: Dict[str, Any] = {"thread_id": active_thread}
-    if query is not None:
-        input_payload["query"] = query
-        input_payload["approved"] = approved  # explicitly override previous turn's approved state
-    elif approved is not None:
-        input_payload["approved"] = approved
+    # Case 1: Resuming an interrupted calculation with approval (approved is True or False)
+    if approved is not None:
+        state_snapshot = pmfby_agent_graph.get_state(config)
+        has_interrupt = any(len(t.interrupts) > 0 for t in state_snapshot.tasks)
 
+        if not has_interrupt:
+            return {
+                "query": query or "",
+                "thread_id": active_thread,
+                "answer": "No pending calculation found to approve on this session. Please submit your crop, area, and scale of finance first.",
+                "status": "rejected",
+                "requires_approval": False,
+                "intent": "approval_rejected",
+                "tool_calls": [],
+                "steps": ["Received approval without an active pending calculation -> Route to rejection"],
+                "citations": [],
+                "confidence": 0.0,
+                "disclaimer": DISCLAIMER,
+            }
+
+        resume_payload = {"approved": approved}
+        if calculation_id:
+            resume_payload["calculation_id"] = calculation_id
+
+        result = pmfby_agent_graph.invoke(Command(resume=resume_payload), config=config)
+        return {
+            "query": query or result.get("query", ""),
+            "thread_id": active_thread,
+            "answer": result.get("answer", ""),
+            "status": result.get("status", "completed"),
+            "requires_approval": result.get("requires_approval", False),
+            "intent": result.get("intent", "approval_resume"),
+            "tool_calls": result.get("tool_calls", []),
+            "steps": result.get("steps", []),
+            "citations": result.get("citations", []),
+            "confidence": result.get("confidence", 0.0),
+            "disclaimer": DISCLAIMER,
+        }
+
+    # Case 2: New user query turn
+    input_payload: Dict[str, Any] = {"thread_id": active_thread, "query": query or ""}
     result = pmfby_agent_graph.invoke(input_payload, config=config)
+
+    # Check if the graph paused at an interrupt()
+    if "__interrupt__" in result and result["__interrupt__"]:
+        interrupt_val = result["__interrupt__"][0].value
+        return {
+            "query": query or "",
+            "thread_id": active_thread,
+            "answer": interrupt_val.get("message", "Approval required for calculation."),
+            "status": "approval_required",
+            "requires_approval": True,
+            "intent": "premium_calc",
+            "pending_calculation": {"id": interrupt_val.get("calculation_id"), "params": interrupt_val.get("params")},
+            "tool_calls": [],
+            "steps": ["Approval gate: Pausing for user confirmation via LangGraph interrupt()."],
+            "citations": [],
+            "confidence": 0.8,
+            "disclaimer": DISCLAIMER,
+        }
 
     return {
         "query": query or result.get("query", ""),

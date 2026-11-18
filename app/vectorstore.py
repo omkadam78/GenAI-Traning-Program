@@ -13,29 +13,37 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DB_DIR = ROOT / "data" / "chroma_db"
 COLLECTION_NAME = "fasalbima_sathi_chunks"
 
-_CLIENT = None
-_COLLECTION = None
+_CLIENTS: dict[str, chromadb.PersistentClient] = {}
+_COLLECTIONS: dict[tuple[str, str], Any] = {}
+
+
+def get_chroma_client(db_dir: Path | str = DEFAULT_DB_DIR) -> chromadb.PersistentClient:
+    """Retrieve or create persistent Chroma client for a given database path."""
+    db_path = str(Path(db_dir).resolve())
+    if db_path not in _CLIENTS:
+        _CLIENTS[db_path] = chromadb.PersistentClient(
+            path=db_path,
+            settings=Settings(anonymized_telemetry=False, is_persistent=True),
+        )
+    return _CLIENTS[db_path]
 
 
 def get_chroma_collection(
     db_dir: Path | str = DEFAULT_DB_DIR,
     collection_name: str = COLLECTION_NAME,
 ):
-    """Retrieve or create persistent Chroma collection."""
-    global _CLIENT, _COLLECTION
+    """Retrieve or create persistent Chroma collection isolated by db_path and collection_name."""
     db_path = str(Path(db_dir).resolve())
+    cache_key = (db_path, collection_name)
 
-    if _CLIENT is None or _COLLECTION is None:
-        _CLIENT = chromadb.PersistentClient(
-            path=db_path,
-            settings=Settings(anonymized_telemetry=False, is_persistent=True),
-        )
-        _COLLECTION = _CLIENT.get_or_create_collection(
+    if cache_key not in _COLLECTIONS:
+        client = get_chroma_client(db_dir)
+        _COLLECTIONS[cache_key] = client.get_or_create_collection(
             name=collection_name,
             metadata={"description": "PMFBY Operational Guidelines & FAQ chunks"},
         )
 
-    return _COLLECTION
+    return _COLLECTIONS[cache_key]
 
 
 def index_chunks(
@@ -46,22 +54,23 @@ def index_chunks(
     force_rebuild: bool = False,
 ) -> int:
     """Index document chunks into persistent Chroma collection."""
+    db_path = str(Path(db_dir).resolve())
+    cache_key = (db_path, collection_name)
+    client = get_chroma_client(db_dir)
+
+    if force_rebuild:
+        try:
+            client.delete_collection(collection_name)
+        except Exception:
+            pass
+        _COLLECTIONS.pop(cache_key, None)
+
     collection = get_chroma_collection(db_dir, collection_name)
 
     existing_count = collection.count()
     if existing_count > 0 and not force_rebuild:
-        logging.info("Chroma collection already contains %s chunks.", existing_count)
+        logging.info("Chroma collection '%s' already contains %s chunks.", collection_name, existing_count)
         return existing_count
-
-    if force_rebuild and existing_count > 0:
-        logging.info("Force rebuild requested: clearing existing collection.")
-        # Delete and recreate
-        client = chromadb.PersistentClient(path=str(Path(db_dir).resolve()))
-        client.delete_collection(collection_name)
-        collection = client.create_collection(
-            name=collection_name,
-            metadata={"description": "PMFBY Operational Guidelines & FAQ chunks"},
-        )
 
     if chunks is None:
         chunks = get_all_chunks()
@@ -89,7 +98,7 @@ def index_chunks(
         )
 
     indexed = collection.count()
-    logging.info("Indexing complete! Total records in collection: %s", indexed)
+    logging.info("Indexing complete! Total records in collection '%s': %s", collection_name, indexed)
     return indexed
 
 
@@ -99,6 +108,7 @@ def query_semantic(
     db_dir: Path | str = DEFAULT_DB_DIR,
     collection_name: str = COLLECTION_NAME,
     where: dict | None = None,
+    evidence_threshold: float = 0.0,
 ) -> list[dict[str, Any]]:
     """Query Chroma collection and return ranked semantic results."""
     query = (query or "").strip()
@@ -125,6 +135,8 @@ def query_semantic(
         dist = distances[idx] if idx < len(distances) else 0.0
         # Convert distance to a similarity score (0.0 to 1.0)
         sim_score = max(0.0, min(1.0, 1.0 - (dist / 2.0))) if dist is not None else 0.8
+        if sim_score < evidence_threshold:
+            continue
         meta = metas[idx] if idx < len(metas) else {}
         formatted.append(
             {

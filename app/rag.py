@@ -19,6 +19,7 @@ def ask_rag(
     question: str,
     top_k: int = 3,
     prompt_version: str = "v2",
+    collection_name: str = "fasalbima_sathi_chunks",
 ) -> dict[str, Any]:
     """Answer PMFBY questions from retrieved vectorstore chunks with citations.
 
@@ -44,14 +45,18 @@ def ask_rag(
         }
 
     # Retrieve relevant document chunks from Chroma
-    chunks = query_semantic(cleaned_q, top_k=top_k)
+    chunks = query_semantic(cleaned_q, top_k=top_k, collection_name=collection_name)
 
-    if not chunks:
+    # Minimum relevance score threshold to prevent hallucination on irrelevant queries
+    EVIDENCE_THRESHOLD = 0.25
+    valid_chunks = [c for c in chunks if c.get("score", 0.0) >= EVIDENCE_THRESHOLD]
+
+    if not valid_chunks:
         return {
             "question": cleaned_q,
             "answered": False,
             "answer": "I don't know. No relevant PMFBY guidelines were found in the knowledge base.",
-            "confidence": 0.2,
+            "confidence": 0.0,
             "citations": [],
             "retrieved_chunks": [],
             "disclaimer": DISCLAIMER,
@@ -67,12 +72,12 @@ def ask_rag(
             "og_version": c.get("og_version", ""),
             "relevance_score": c.get("score", 0.0),
         }
-        for c in chunks
+        for c in valid_chunks
     ]
 
     # Convert chunks to record format for LLM wrapper synthesis
     adapted_records = []
-    for c in chunks:
+    for c in valid_chunks:
         adapted_records.append(
             {
                 "id": c.get("chunk_id", 0),
@@ -94,14 +99,41 @@ def ask_rag(
         context_records=adapted_records,
     )
 
+    answer_text = llm_res.get("answer", "")
+    low_answer = answer_text.strip().casefold()
+    is_abstention = (
+        low_answer.startswith("i don't know")
+        or low_answer.startswith("i do not know")
+        or "cannot determine" in low_answer
+        or "no information" in low_answer
+    )
+
+    if is_abstention:
+        return {
+            "question": cleaned_q,
+            "answered": False,
+            "answer": answer_text,
+            "confidence": 0.0,
+            "follow_up": llm_res.get("follow_up", ""),
+            "citations": citations,
+            "retrieved_chunks": valid_chunks,
+            "disclaimer": DISCLAIMER,
+            "provider": llm_res.get("provider", "rag-engine"),
+            "model": llm_res.get("model", "pmfby-rag-v1"),
+        }
+
+    # Compute grounded confidence from top chunk relevance score
+    top_score = float(valid_chunks[0].get("score", 0.8))
+    grounded_confidence = round(max(0.5, min(0.98, top_score)), 2)
+
     return {
         "question": cleaned_q,
         "answered": True,
-        "answer": llm_res.get("answer", ""),
-        "confidence": llm_res.get("confidence", 0.95),
+        "answer": answer_text,
+        "confidence": grounded_confidence,
         "follow_up": llm_res.get("follow_up", ""),
         "citations": citations,
-        "retrieved_chunks": chunks,
+        "retrieved_chunks": valid_chunks,
         "disclaimer": DISCLAIMER,
         "provider": llm_res.get("provider", "rag-engine"),
         "model": llm_res.get("model", "pmfby-rag-v1"),

@@ -1,12 +1,10 @@
-"""PMFBY agent tools for FasalBima Sathi (Day 9).
+"""PMFBY agent tools for FasalBima Sathi (Days 9 & 10).
 
-Tools:
-- pmfby_premium: Calculates sum insured (scale of finance x area) and
-  the farmer's premium share using season and crop-type rates stored in records.json.
-  Uses Python Decimal for exact monetary arithmetic and documented rounding.
-- pmfby_knowledge_search: RAG semantic search over PMFBY official guidelines chunks.
-- pmfby_claim_deadline_check: Computes the 72-hour localized calamity intimation deadline
-  with injectable clock and Asia/Kolkata timezone support.
+Official Reference:
+- Revamped Operational Guidelines (Kharif 2020 onwards), Ministry of Agriculture & Farmers Welfare, GoI.
+  - Para 13.1 Table 1: Statutory Maximum Premium Rates payable by farmer (% of Sum Insured).
+  - Para 15.1.2 & 15.2.2: Localized Calamities & Post-Harvest Losses 72-hour Intimation Rule.
+- Verified against pmfby.gov.in guidelines.
 """
 from __future__ import annotations
 
@@ -25,17 +23,19 @@ ROOT = Path(__file__).resolve().parent.parent
 RECORDS_PATH = ROOT / "data" / "records.json"
 IST = zoneinfo.ZoneInfo("Asia/Kolkata")
 
-# 1 acre = 0.404686 hectares (standard Indian land measurement conversion)
+# Precise standard agricultural conversions
 ACRES_TO_HECTARES = Decimal("0.404686")
+HECTARES_TO_ACRES = Decimal("2.471054")
 
-# Statutory PMFBY maximum premium caps payable by farmer (% of Sum Insured)
+# Statutory PMFBY maximum farmer premium rates (% of Sum Insured)
+# Source: Revamped OG, Para 13.1 Table 1
 DEFAULT_RATE_MAP = {
-    "kharif_foodgrain_oilseed": Decimal("2.0"),    # Kharif food grains and oilseeds
-    "rabi_foodgrain_oilseed": Decimal("1.5"),      # Rabi food grains and oilseeds
-    "commercial_horticultural": Decimal("5.0"),    # Annual commercial / horticultural
+    "kharif_foodgrain_oilseed": Decimal("2.0"),    # Kharif food grains, cereals, pulses, and oilseeds
+    "rabi_foodgrain_oilseed": Decimal("1.5"),      # Rabi food grains, cereals, pulses, and oilseeds
+    "commercial_horticultural": Decimal("5.0"),    # Annual commercial & annual horticultural crops
 }
 
-# Known crop-to-category associations under PMFBY
+# Verified crop-to-category associations under PMFBY
 CROP_CATEGORY_MAP = {
     # Kharif foodgrain / oilseeds
     "soybean": ("kharif", "kharif_foodgrain_oilseed"),
@@ -120,14 +120,14 @@ def load_rate_table_from_records() -> Dict[str, Dict[str, Any]]:
                 "source_url": r.get("source_url"),
             }
 
-    # Fallback to standard defaults if any record was missing
+    # Ensure all three standard categories exist with official guideline references
     for key, default_rate in DEFAULT_RATE_MAP.items():
         if key not in rate_table:
             rate_table[key] = {
                 "rate_percent": default_rate,
                 "record_id": None,
                 "rule_topic": key.replace("_", " ").title(),
-                "og_version": "Revamped OG (Kharif 2020), Para 13.1 Table 1",
+                "og_version": "Revamped OG (Kharif 2020 onwards), Para 13.1 Table 1",
                 "source_url": "https://pmfby.gov.in/pdf/Revamped%20OGs_Final.pdf",
             }
 
@@ -135,7 +135,7 @@ def load_rate_table_from_records() -> Dict[str, Dict[str, Any]]:
 
 
 def _validate_numeric(val: Any, field_name: str, allow_zero: bool = False, max_val: Optional[float] = None) -> Decimal:
-    """Validate numeric input rejecting booleans, NaN, Inf, and non-numbers."""
+    """Validate numeric input rejecting booleans, NaN, Inf, non-numbers, and invalid bounds."""
     if isinstance(val, bool):
         raise ValueError(f"{field_name} must be a number, not a boolean.")
     try:
@@ -183,7 +183,6 @@ def resolve_crop_and_category(
     # Known crop lookup
     if crop_clean in CROP_CATEGORY_MAP:
         default_season, category = CROP_CATEGORY_MAP[crop_clean]
-        # Respect explicit season override
         resolved_season = season_clean if season_clean in {"kharif", "rabi", "annual", "summer"} else default_season
         if resolved_season == "rabi" and category == "kharif_foodgrain_oilseed":
             category = "rabi_foodgrain_oilseed"
@@ -199,7 +198,6 @@ def resolve_crop_and_category(
     if "kharif" in season_clean or "kharif" in type_clean:
         return crop_clean or "kharif crop", "kharif", "kharif_foodgrain_oilseed"
 
-    # Ambiguous / unverified crop without season
     raise ValueError(
         f"Unable to determine statutory rate: crop '{crop}' not found in official PMFBY records.json. "
         "Please specify season ('kharif', 'rabi', or 'annual commercial/horticultural')."
@@ -212,8 +210,10 @@ def pmfby_premium(
     crop: Optional[str] = None,
     season: Optional[str] = None,
     crop_type: Optional[str] = None,
-    unit: str = "ha",
+    area_unit: str = "ha",
+    scale_of_finance_unit: str = "per_ha",
     actuarial_rate: Optional[Any] = None,
+    unit: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Calculates sum insured (scale of finance x area) and farmer's premium share
 
@@ -221,82 +221,128 @@ def pmfby_premium(
     Uses pure arithmetic with Python Decimal and ROUND_HALF_UP rounding.
 
     Args:
-        scale_of_finance: Scale of finance in INR per hectare (or per acre).
+        scale_of_finance: Scale of finance amount.
         area: Insured crop area.
         crop: Crop name (e.g. 'soybean', 'wheat', 'cotton').
         season: Season ('kharif', 'rabi', 'annual').
         crop_type: Specific category key.
-        unit: Area unit ('ha', 'hectare', 'hectares', 'acre', 'acres').
-        actuarial_rate: Total actuarial premium rate percent if known.
+        area_unit: Area unit ('ha', 'hectare', 'hectares', 'acre', 'acres').
+        scale_of_finance_unit: Scale of finance unit ('per_ha', 'per_hectare', 'per_acre').
+        actuarial_rate: Total actuarial premium rate percent (must be > 0 if provided).
+        unit: Backward-compatibility alias for area_unit.
 
     Returns:
         Dict with exact Decimal results, calculation breakdown, and rule reference.
     """
-    # 1. Validate numeric inputs
-    sof_dec = _validate_numeric(scale_of_finance, "scale_of_finance", allow_zero=False)
+    if unit is not None:
+        area_unit = unit
+    if scale_of_finance is None:
+        raise ValueError("scale_of_finance is required. Please specify the scale of finance in ₹.")
+    if area is None:
+        raise ValueError("area is required. Please specify the insured crop area.")
+
+    sof_raw_dec = _validate_numeric(scale_of_finance, "scale_of_finance", allow_zero=False)
     area_raw_dec = _validate_numeric(area, "area", allow_zero=False)
 
     actuarial_dec: Optional[Decimal] = None
     if actuarial_rate is not None:
-        actuarial_dec = _validate_numeric(actuarial_rate, "actuarial_rate", allow_zero=True, max_val=100.0)
+        # Actuarial rate in PMFBY must be a positive percentage > 0
+        if isinstance(actuarial_rate, bool):
+            raise ValueError("actuarial_rate must be a number, not a boolean.")
+        try:
+            act_val = float(actuarial_rate)
+        except (TypeError, ValueError):
+            raise ValueError("actuarial_rate must be a valid numeric percentage.")
+        if act_val <= 0:
+            raise ValueError("Actuarial rate must be a positive percentage greater than 0%.")
+        if act_val > 100:
+            raise ValueError("Actuarial rate cannot exceed 100%.")
+        actuarial_dec = Decimal(str(actuarial_rate))
 
-    # 2. Handle area units (hectares vs acres)
-    unit_norm = unit.strip().lower()
-    if unit_norm in {"ha", "hectare", "hectares"}:
-        area_ha_dec = area_raw_dec
-        conversion_note = f"{area_raw_dec} ha"
-    elif unit_norm in {"acre", "acres"}:
-        # Convert acres to hectares: 1 acre = 0.404686 ha
-        area_ha_dec = (area_raw_dec * ACRES_TO_HECTARES).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
-        conversion_note = f"{area_raw_dec} acres ({area_ha_dec} ha converted at 1 acre = 0.404686 ha)"
-    else:
+    # Normalize units
+    a_unit = (area_unit or "ha").strip().lower()
+    sof_unit = (scale_of_finance_unit or "per_ha").strip().lower()
+
+    if a_unit not in {"ha", "hectare", "hectares", "acre", "acres"}:
         raise ValueError(
-            f"Unsupported area unit '{unit}'. Supported units are hectares ('ha', 'hectare') or acres ('acre', 'acres')."
+            f"Unsupported area unit '{area_unit}'. Supported units are hectares ('ha', 'hectare') or acres ('acre', 'acres')."
+        )
+    if sof_unit not in {"per_ha", "per_hectare", "ha", "per_acre", "acre"}:
+        raise ValueError(
+            f"Unsupported scale of finance unit '{scale_of_finance_unit}'. Supported units are 'per_ha' or 'per_acre'."
         )
 
-    # 3. Resolve crop and applicable rate from records.json
+    # Unit conversion arithmetic:
+    # 1. Normalize area to hectares
+    is_acre_area = a_unit in {"acre", "acres"}
+    is_per_acre_sof = sof_unit in {"per_acre", "acre"}
+
+    if is_acre_area:
+        area_ha_dec = (area_raw_dec * ACRES_TO_HECTARES).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
+    else:
+        area_ha_dec = area_raw_dec
+
+    # 2. Compute Sum Insured matching units
+    if is_acre_area and is_per_acre_sof:
+        # Both in acres: scale_of_finance (₹/acre) * area (acres)
+        sum_insured_dec = (sof_raw_dec * area_raw_dec).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        sof_per_ha_dec = (sof_raw_dec * HECTARES_TO_ACRES).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        conversion_desc = f"{area_raw_dec} acres @ ₹{sof_raw_dec:,.2f}/acre"
+    elif is_acre_area and not is_per_acre_sof:
+        # Area in acres, SOF in ₹/ha: convert area to ha
+        sum_insured_dec = (sof_raw_dec * area_ha_dec).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        sof_per_ha_dec = sof_raw_dec
+        conversion_desc = f"{area_raw_dec} acres ({area_ha_dec} ha converted at 1 acre = 0.404686 ha) @ ₹{sof_raw_dec:,.2f}/ha"
+    elif not is_acre_area and is_per_acre_sof:
+        # Area in ha, SOF in ₹/acre: convert SOF to ₹/ha
+        sof_per_ha_dec = (sof_raw_dec * HECTARES_TO_ACRES).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        sum_insured_dec = (sof_per_ha_dec * area_raw_dec).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        conversion_desc = f"{area_raw_dec} ha @ ₹{sof_raw_dec:,.2f}/acre (converted to ₹{sof_per_ha_dec:,.2f}/ha)"
+    else:
+        # Standard: Both in hectares
+        sum_insured_dec = (sof_raw_dec * area_raw_dec).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        sof_per_ha_dec = sof_raw_dec
+        conversion_desc = f"{area_raw_dec} ha @ ₹{sof_raw_dec:,.2f}/ha"
+
+    # 3. Resolve crop and rate category from records.json
     crop_name, resolved_season, category = resolve_crop_and_category(crop, season, crop_type)
     rate_table = load_rate_table_from_records()
     category_info = rate_table.get(category, rate_table["kharif_foodgrain_oilseed"])
     statutory_cap = category_info["rate_percent"]
 
-    # 4. Pure arithmetic for Sum Insured
-    sum_insured_dec = (sof_dec * area_ha_dec).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-
-    # 5. Determine applicable rate and estimate vs exact
-    if actuarial_dec is not None and actuarial_dec > Decimal("0"):
-        # Under PMFBY: Farmer pays min(statutory_cap, actuarial_rate)
+    # 4. Determine applicable rate and estimate vs exact
+    if actuarial_dec is not None:
         farmer_rate = min(statutory_cap, actuarial_dec)
         is_estimated_maximum = False
         rate_note = (
-            f"Exact farmer rate = {farmer_rate:.2f}% (actuarial tender rate {actuarial_dec:.2f}% "
-            f"vs statutory cap {statutory_cap:.2f}%)"
+            f"Exact farmer premium rate = {farmer_rate:.2f}% (actuarial tender rate {actuarial_dec:.2f}% "
+            f"vs statutory cap {statutory_cap:.2f}% under PMFBY Para 13.1)."
         )
     else:
         farmer_rate = statutory_cap
         is_estimated_maximum = True
         rate_note = (
-            f"Estimated maximum farmer premium (capped at {farmer_rate:.1f}% statutory ceiling under PMFBY). "
-            "Actual farmer premium may be lower if tender actuarial rate is lower."
+            f"Estimated maximum farmer premium (capped at {farmer_rate:.1f}% statutory ceiling under PMFBY Para 13.1). "
+            "Actual farmer premium may be lower if district tender actuarial rate is lower."
         )
 
-    # 6. Pure arithmetic for Farmer's Premium Share
+    # 5. Pure arithmetic for Farmer's Premium Share
     farmer_premium_dec = (sum_insured_dec * (farmer_rate / Decimal("100"))).quantize(
         Decimal("0.01"), rounding=ROUND_HALF_UP
     )
 
     total_premium_dec: Optional[Decimal] = None
     subsidy_dec: Optional[Decimal] = None
-    if actuarial_dec is not None and actuarial_dec > Decimal("0"):
+    if actuarial_dec is not None:
         total_premium_dec = (sum_insured_dec * (actuarial_dec / Decimal("100"))).quantize(
             Decimal("0.01"), rounding=ROUND_HALF_UP
         )
         subsidy_dec = total_premium_dec - farmer_premium_dec
 
     breakdown = (
-        f"Sum Insured = Scale of Finance (₹{sof_dec:,.2f}/ha) × Area ({conversion_note}) = ₹{sum_insured_dec:,.2f}. "
-        f"Farmer Premium Rate = {farmer_rate:.1f}% ({resolved_season.title()} {category.replace('_', ' ')}). "
-        f"{'Estimated Maximum ' if is_estimated_maximum else ''}Farmer Premium = ₹{sum_insured_dec:,.2f} × {farmer_rate:.1f}% = ₹{farmer_premium_dec:,.2f}."
+        f"Sum Insured = Scale of Finance × Area ({conversion_desc}) = ₹{sum_insured_dec:,.2f}. "
+        f"Farmer Premium Rate = {farmer_rate:.2f}% ({resolved_season.title()} {category.replace('_', ' ')}). "
+        f"{'Estimated Maximum ' if is_estimated_maximum else ''}Farmer Premium Share = ₹{sum_insured_dec:,.2f} × {farmer_rate:.2f}% = ₹{farmer_premium_dec:,.2f}."
     )
 
     return {
@@ -304,10 +350,12 @@ def pmfby_premium(
         "crop": crop_name,
         "season": resolved_season,
         "category": category,
-        "unit": unit_norm,
         "area_raw": float(area_raw_dec),
+        "area_unit": "acre" if is_acre_area else "ha",
         "area_ha": float(area_ha_dec),
-        "scale_of_finance_per_ha": float(sof_dec),
+        "scale_of_finance_raw": float(sof_raw_dec),
+        "scale_of_finance_unit": "per_acre" if is_per_acre_sof else "per_ha",
+        "scale_of_finance_per_ha": float(sof_per_ha_dec),
         "sum_insured": float(sum_insured_dec),
         "farmer_rate_percent": float(farmer_rate),
         "farmer_premium": float(farmer_premium_dec),
@@ -329,8 +377,7 @@ def pmfby_premium(
 def parse_loss_timestamp(loss_input: Any, now: Optional[datetime] = None) -> datetime:
     """Parse actual supplied loss date/time into an Asia/Kolkata timezone-aware datetime.
 
-    Supports ISO formats, standard strings, and relative dates with injectable clock.
-    Raises ValueError on missing, empty, or unparseable input.
+    Requires both date and approximate time; rejects future timestamps and invalid formats.
     """
     if now is None:
         clock_now = datetime.now(tz=IST)
@@ -340,7 +387,10 @@ def parse_loss_timestamp(loss_input: Any, now: Optional[datetime] = None) -> dat
         clock_now = now.astimezone(IST)
 
     if isinstance(loss_input, datetime):
-        return loss_input if loss_input.tzinfo else loss_input.replace(tzinfo=IST)
+        dt = loss_input if loss_input.tzinfo else loss_input.replace(tzinfo=IST)
+        if dt > clock_now:
+            raise ValueError("Loss event date cannot be in the future. Please provide when the calamity occurred.")
+        return dt
 
     s = str(loss_input).strip()
     if not s:
@@ -351,7 +401,6 @@ def parse_loss_timestamp(loss_input: Any, now: Optional[datetime] = None) -> dat
     # Relative expressions
     if "yesterday" in low:
         loss_date = (clock_now - timedelta(days=1)).date()
-        # Parse time if specified
         t_match = re.search(r"(\d{1,2})(?::(\d{2}))?\s*(am|pm)?", low)
         if t_match:
             hr = int(t_match.group(1))
@@ -363,8 +412,11 @@ def parse_loss_timestamp(loss_input: Any, now: Optional[datetime] = None) -> dat
                 hr = 0
             loss_time = time(hr, mn)
         else:
-            loss_time = time(21, 0)  # Default evening if time omitted
-        return datetime.combine(loss_date, loss_time, tzinfo=IST)
+            raise ValueError("Please provide the approximate time of loss (e.g. 'yesterday at 9 pm') to calculate the 72-hour window.")
+        dt = datetime.combine(loss_date, loss_time, tzinfo=IST)
+        if dt > clock_now:
+            raise ValueError("Loss event date cannot be in the future.")
+        return dt
 
     if "today" in low:
         loss_date = clock_now.date()
@@ -379,8 +431,11 @@ def parse_loss_timestamp(loss_input: Any, now: Optional[datetime] = None) -> dat
                 hr = 0
             loss_time = time(hr, mn)
         else:
-            loss_time = clock_now.time()
-        return datetime.combine(loss_date, loss_time, tzinfo=IST)
+            raise ValueError("Please provide the approximate time of loss (e.g. 'today at 10 am') to calculate the 72-hour window.")
+        dt = datetime.combine(loss_date, loss_time, tzinfo=IST)
+        if dt > clock_now:
+            raise ValueError("Loss event date cannot be in the future.")
+        return dt
 
     # Relative hours ago
     hrs_match = re.search(r"(\d+(?:\.\d+)?)\s*(?:hours?|hrs?)\s+ago", low)
@@ -388,27 +443,35 @@ def parse_loss_timestamp(loss_input: Any, now: Optional[datetime] = None) -> dat
         delta_hrs = float(hrs_match.group(1))
         return clock_now - timedelta(hours=delta_hrs)
 
-    # Standard explicit formats
+    # Date-only check: if format matches YYYY-MM-DD or DD-MM-YYYY without time, ask for time!
+    date_only_match = re.match(r"^(\d{4}-\d{2}-\d{2}|\d{2}-\d{2}-\d{4}|\d{2}/\d{2}/\d{4})$", s)
+    if date_only_match:
+        raise ValueError(
+            f"Date '{s}' provided without time. Please provide the approximate time of loss "
+            "(e.g. '2026-11-16 21:00' or 'yesterday at 9 pm') to accurately calculate the 72-hour window."
+        )
+
+    # Explicit timestamp formats with date and time
     for fmt in (
         "%Y-%m-%d %H:%M:%S",
         "%Y-%m-%d %H:%M",
         "%Y-%m-%dT%H:%M:%S",
         "%Y-%m-%dT%H:%M",
-        "%Y-%m-%d",
         "%d-%m-%Y %H:%M:%S",
         "%d-%m-%Y %H:%M",
-        "%d-%m-%Y",
         "%d/%m/%Y %H:%M",
-        "%d/%m/%Y",
     ):
         try:
-            d = datetime.strptime(s, fmt)
-            return d.replace(tzinfo=IST)
-        except ValueError:
-            pass
+            d = datetime.strptime(s, fmt).replace(tzinfo=IST)
+            if d > clock_now:
+                raise ValueError("Loss event date cannot be in the future. Please provide when the calamity occurred.")
+            return d
+        except ValueError as e:
+            if "future" in str(e):
+                raise
 
     raise ValueError(
-        f"Invalid loss timestamp '{s}'. Please provide a valid date/time "
+        f"Invalid loss timestamp '{s}'. Please provide a valid date and time "
         "(e.g. 'YYYY-MM-DD HH:MM', 'yesterday at 9 pm', or '12 hours ago')."
     )
 
@@ -420,13 +483,7 @@ def pmfby_claim_deadline_check(
 ) -> Dict[str, Any]:
     """Calculates PMFBY 72-hour localized calamity / post-harvest intimation deadline.
 
-    Args:
-        loss_timestamp: Supplied loss date/time string or datetime.
-        window_hours: Statutory intimation window (default 72 hours).
-        now: Injectable current clock for deterministic evaluation and testing.
-
-    Returns:
-        Dict with exact loss and deadline timestamps, remaining hours, and official channels.
+    Official Source: Revamped Operational Guidelines (Kharif 2020 onwards), Para 15.1.2 & 15.2.2.
     """
     if now is None:
         clock_now = datetime.now(tz=IST)
@@ -437,7 +494,8 @@ def pmfby_claim_deadline_check(
 
     loss_dt = parse_loss_timestamp(loss_timestamp, now=clock_now)
     deadline_dt = loss_dt + timedelta(hours=window_hours)
-    remaining_hours = round((deadline_dt - clock_now).total_seconds() / 3600.0, 1)
+    remaining_seconds = (deadline_dt - clock_now).total_seconds()
+    remaining_hours = round(remaining_seconds / 3600.0, 1)
 
     return {
         "status": "success",
@@ -448,21 +506,27 @@ def pmfby_claim_deadline_check(
         "remaining_hours": remaining_hours,
         "is_expired": remaining_hours <= 0,
         "reporting_channels": [
-            "Crop Insurance App",
+            "Crop Insurance App (National Crop Insurance Portal)",
             "Krishi Rakshak Helpline: 14447",
-            "Concerned Insurance Company Toll-Free",
+            "Concerned Insurance Company Toll-Free Number",
             "Bank Branch / PACS where premium was debited",
             "Local Agriculture Officer / Revenue Authority",
         ],
-        "og_version": "Revamped OG (Kharif 2020), Para 15.1.2 & 15.2.2 (72 hours rule)",
+        "og_version": "Revamped OG (Kharif 2020 onwards), Para 15.1.2 & 15.2.2",
+        "disclaimer": (
+            "Note: The 72-hour notification clock applies specifically to localized calamities "
+            "(hailstorm, landslide, inundation, cloudburst, natural fire) and post-harvest losses "
+            "(up to 14 days for cut-and-spread crops). Widespread yield losses are assessed at season end "
+            "via Crop Cutting Experiments (CCEs). This app calculates the deadline and does not file a formal claim."
+        ),
     }
 
 
-def pmfby_knowledge_search(query: str, top_k: int = 3) -> Dict[str, Any]:
+def pmfby_knowledge_search(query: str, top_k: int = 3, collection_name: Optional[str] = None) -> Dict[str, Any]:
     """RAG semantic search tool over PMFBY official guidelines chunks."""
     if not query or not query.strip():
         raise ValueError("Search query cannot be empty.")
-    hits = query_semantic(query, top_k=top_k)
+    hits = query_semantic(query, top_k=top_k, collection_name=collection_name or "fasalbima_sathi_chunks")
     return {
         "query": query,
         "count": len(hits),

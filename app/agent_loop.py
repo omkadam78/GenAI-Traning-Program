@@ -65,10 +65,16 @@ def extract_premium_params(query: str) -> Dict[str, Any]:
     )
 
     scale_val: Optional[float] = None
+    sof_unit_val = "per_ha"
     if sof_match:
         scale_val = float(sof_match.group(1).replace(",", ""))
     elif "49,000" in query or "49000" in query:
         scale_val = 49000.0
+
+    if "per acre" in q or "/acre" in q:
+        sof_unit_val = "per_acre"
+    elif "per ha" in q or "/ha" in q or "per hectare" in q or "/hectare" in q:
+        sof_unit_val = "per_ha"
 
     area_val: Optional[float] = None
     unit_val = "ha"
@@ -111,7 +117,9 @@ def extract_premium_params(query: str) -> Dict[str, Any]:
     return {
         "is_calc_intent": is_calc_intent,
         "scale_of_finance": scale_val,
+        "scale_of_finance_unit": sof_unit_val,
         "area": area_val,
+        "area_unit": unit_val,
         "unit": unit_val,
         "crop": detected_crop,
         "season": season,
@@ -239,7 +247,8 @@ class HandwrittenAgent:
                         area=calc_info["area"],
                         crop=calc_info["crop"],
                         season=calc_info["season"],
-                        unit=calc_info["unit"],
+                        area_unit=calc_info.get("area_unit", calc_info.get("unit", "ha")),
+                        scale_of_finance_unit=calc_info.get("scale_of_finance_unit", "per_ha"),
                         actuarial_rate=calc_info["actuarial_rate"],
                     )
                     tools_called.append("pmfby_premium")
@@ -382,6 +391,7 @@ class HandwrittenAgent:
             status_str = f"{deadline_info['remaining_hours']} hours remaining" if not deadline_info["is_expired"] else "Deadline has expired"
             answer_parts.append(
                 f"**Localized Calamity Intimation (72-Hour Rule):**\n"
+                f"- **Statutory Window:** Must be intimated within **72 hours** of loss occurrence.\n"
                 f"- **Loss Event:** {deadline_info['loss_timestamp']}\n"
                 f"- **Intimation Deadline:** **{deadline_info['deadline_timestamp']}** ({status_str})\n"
                 f"- **Reporting Channels:** {channels_str}\n"
@@ -393,12 +403,19 @@ class HandwrittenAgent:
                 f"- **Statutory Window:** Localized calamity loss must be reported within **72 hours** of occurrence (Revamped OG, Para 15.1.2).\n"
                 f"- **Authorized Channels:** Crop Insurance App, Toll-Free Helpline (14447), Bank Branch / PACS, or Agriculture Officer."
             )
-        elif search_result and search_result.get("hits"):
+
+        if search_result and search_result.get("hits"):
             top_hit = search_result["hits"][0]
-            answer_parts.append(
-                f"**PMFBY Guidelines:**\n{top_hit['text']}\n\n"
-                f"*(Source: {top_hit['source']}, Page {top_hit['page']})*"
-            )
+            if not calc_result and not deadline_info:
+                answer_parts.append(
+                    f"**PMFBY Guidelines:**\n{top_hit['text']}\n\n"
+                    f"*(Source: {top_hit['source']}, Page {top_hit['page']})*"
+                )
+            else:
+                answer_parts.append(
+                    f"**Related Policy Guidance:**\n{top_hit['text']}\n\n"
+                    f"*(Source: {top_hit['source']}, Page {top_hit['page']})*"
+                )
 
         if not answer_parts:
             answer_parts.append(
