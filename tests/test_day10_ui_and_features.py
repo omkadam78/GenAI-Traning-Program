@@ -135,8 +135,8 @@ def test_feedback_submission_and_deduplication():
     assert r2.status_code == 200
     assert r2.json()["updated"] is True
 
-    # Check GET /feedback
-    r_list = client.get("/feedback")
+    # Check GET /feedback (scoped by thread_id)
+    r_list = client.get(f"/feedback?thread_id={thread_id}")
     assert r_list.status_code == 200
     fb_list = r_list.json()["feedback"]
     matching = [e for e in fb_list if e.get("thread_id") == thread_id and e.get("query") == query]

@@ -6,7 +6,8 @@ Features:
 3. Live 72-Hour Calamity Intimation Clock with automatic countdown and official reporting channels
 4. Transparent tool execution traces and genuine guideline citations
 5. Thumbs-up / Thumbs-down feedback collection keyed by response_id with safe persistence
-6. Strict HTTP backend communication preventing silent local fallbacks and duplicate executions
+6. Strict HTTP backend communication with client request_id idempotency and retry capability
+7. Bound approval mode locking controls while calculations are pending
 """
 from __future__ import annotations
 
@@ -41,6 +42,29 @@ st.set_page_config(
     page_icon="🌾",
     layout="wide",
 )
+
+
+def parse_iso_datetime(dt_str: str | None) -> datetime | None:
+    """Parse ISO timestamps with +05:30, Z, or IST into a timezone-aware Asia/Kolkata datetime."""
+    if not dt_str:
+        return None
+    s = str(dt_str).strip()
+    if s.endswith(" IST"):
+        s = s[:-4].strip() + "+05:30"
+    if s.endswith("Z"):
+        s = s[:-1] + "+00:00"
+    try:
+        dt = datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=IST)
+        return dt.astimezone(IST)
+    except Exception:
+        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M"):
+            try:
+                return datetime.strptime(s[:19], fmt).replace(tzinfo=IST)
+            except Exception:
+                pass
+    return None
 
 
 def is_api_alive() -> bool:
@@ -91,11 +115,15 @@ def call_agent_api(
     calculation_id: str | None = None,
     agent_type: str = "langgraph",
     execution_mode: str = "backend",
-) -> tuple[dict | None, str | None]:
+    request_id: str | None = None,
+) -> tuple[dict | None, str | None, str]:
     """Execute agent turn via HTTP backend or explicit offline fallback.
     
-    Returns (result_dict, error_message). Prevents silent local execution on error.
+    Returns (result_dict, error_message, request_id_used).
+    Reuses request_id for reliable retry without silent local execution on timeout.
     """
+    req_id = request_id or f"req_{uuid.uuid4().hex[:12]}"
+
     if execution_mode == "offline":
         try:
             if agent_type == "handwritten":
@@ -103,7 +131,7 @@ def call_agent_api(
                 res = run_agent_loop(query or "")
                 res["thread_id"] = thread_id or f"session_{uuid.uuid4().hex[:12]}"
                 res["agent_type"] = "handwritten"
-                return res, None
+                return res, None, req_id
             else:
                 from app.graph import run_langgraph_agent
                 res = run_langgraph_agent(
@@ -113,12 +141,11 @@ def call_agent_api(
                     calculation_id=calculation_id,
                 )
                 res["agent_type"] = "langgraph"
-                return res, None
+                return res, None, req_id
         except Exception as err:
-            return None, f"Local offline execution error: {err}"
+            return None, f"Local offline execution error: {err}", req_id
 
     # Production Mode: Strict HTTP Backend Execution with Idempotency
-    req_id = f"req_{uuid.uuid4().hex[:12]}"
     payload = {
         "query": query,
         "thread_id": thread_id,
@@ -130,24 +157,26 @@ def call_agent_api(
     try:
         res = requests.post(f"{API_BASE_URL}/agent", json=payload, timeout=30.0)
         if res.status_code == 200:
-            return res.json(), None
+            return res.json(), None, req_id
+        if res.status_code == 409:
+            return None, f"Idempotency Conflict: {res.json().get('detail', 'Payload conflict')}", req_id
         try:
             detail = res.json().get("detail", res.text)
         except Exception:
             detail = res.text
-        return None, f"Backend Error ({res.status_code}): {detail}"
+        return None, f"Backend Error ({res.status_code}): {detail}", req_id
     except requests.exceptions.ConnectionError:
         return None, (
             f"Backend Connection Error: FastAPI server is not reachable at {API_BASE_URL}. "
             "Please ensure the backend is running (`uvicorn app.main:app --port 8000`)."
-        )
+        ), req_id
     except requests.exceptions.Timeout:
         return None, (
             "Backend Request Timeout: The agent request timed out after 30 seconds. "
-            "To prevent duplicate execution, this request was not rerun locally. Please retry."
-        )
+            "To prevent duplicate execution, this request was not rerun locally. You can retry with the same request ID."
+        ), req_id
     except Exception as err:
-        return None, f"Request failed: {err}"
+        return None, f"Request failed: {err}", req_id
 
 
 # --- INITIALIZE EMPTY STATE (Zero Fabricated State) ---
@@ -169,6 +198,9 @@ if "feedback_status" not in st.session_state:
 if "demo_mode" not in st.session_state:
     st.session_state.demo_mode = False
 
+if "retry_request" not in st.session_state:
+    st.session_state.retry_request = None
+
 
 # --- SIDEBAR: Controls & Live 72-Hour Calamity Clock ---
 with st.sidebar:
@@ -183,10 +215,16 @@ with st.sidebar:
     st.subheader("⚙️ Session Controls")
     st.caption(f"Session ID: `{st.session_state.thread_id}`")
 
+    # Lock controls while an approval is pending
+    has_pending = bool(st.session_state.pending_approval)
+    if has_pending:
+        st.warning("🔒 Engine and Mode controls locked while approval is pending. Approve or cancel below.")
+
     agent_mode = st.radio(
         "Agent Engine:",
         ["LangGraph (Stateful + Interrupt)", "Handwritten ReAct"],
         index=0,
+        disabled=has_pending,
     )
     agent_key = "langgraph" if "LangGraph" in agent_mode else "handwritten"
 
@@ -194,6 +232,7 @@ with st.sidebar:
         "Execution Mode:",
         ["HTTP Backend (Production)", "Offline Direct (Demo)"],
         index=0,
+        disabled=has_pending,
         help="Production mode calls the FastAPI service with idempotency; Offline mode runs locally in-process.",
     )
     exec_mode_val = "backend" if "HTTP Backend" in exec_mode else "offline"
@@ -207,6 +246,7 @@ with st.sidebar:
             st.session_state.claim_clock_data = None
             st.session_state.feedback_status = {}
             st.session_state.demo_mode = False
+            st.session_state.retry_request = None
             st.rerun()
 
     with col_btn2:
@@ -273,8 +313,8 @@ with st.sidebar:
             ]
             st.session_state.pending_approval = None
             st.session_state.claim_clock_data = {
-                "loss_timestamp": (datetime.now(tz=IST) - timedelta(hours=15)).strftime("%Y-%m-%d %H:%M:%S IST"),
-                "deadline_timestamp": (datetime.now(tz=IST) + timedelta(hours=57)).strftime("%Y-%m-%d %H:%M:%S IST"),
+                "loss_timestamp": (datetime.now(tz=IST) - timedelta(hours=15)).isoformat(),
+                "deadline_timestamp": (datetime.now(tz=IST) + timedelta(hours=57)).isoformat(),
                 "window_hours": 72,
                 "remaining_hours": 57.0,
                 "is_expired": False,
@@ -335,17 +375,9 @@ with st.sidebar:
             return
 
         ck = st.session_state.claim_clock_data
-        deadline_str = ck.get("deadline_timestamp", "")
-        dt_clean = deadline_str.replace(" IST", "").strip()
-        deadline_dt = None
-        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M"):
-            try:
-                deadline_dt = datetime.strptime(dt_clean, fmt).replace(tzinfo=IST)
-                break
-            except Exception:
-                pass
-
+        deadline_dt = parse_iso_datetime(ck.get("deadline_timestamp"))
         now_dt = datetime.now(tz=IST)
+
         if deadline_dt:
             rem_sec = (deadline_dt - now_dt).total_seconds()
             if rem_sec <= 0:
@@ -363,12 +395,12 @@ with st.sidebar:
                 st.success(f"⏳ **{ck.get('remaining_hours')} Hours Remaining**")
 
         st.markdown(f"**Loss Event:** `{ck.get('loss_timestamp')}`")
-        st.markdown(f"**Deadline:** `{ck.get('deadline_timestamp')}`")
+        st.markdown(f"**Statutory Deadline:** `{ck.get('deadline_timestamp')}`")
 
         with st.expander("📞 Authorized Reporting Channels", expanded=True):
             for ch in ck.get("reporting_channels", []):
                 st.markdown(f"- {ch}")
-        st.caption("⚠️ Note: This tool computes the statutory deadline; it does not submit a claim.")
+        st.caption("⚠️ Note: This tool computes statutory deadlines; it does not submit insurance claims.")
 
     render_live_clock()
 
@@ -386,6 +418,47 @@ if exec_mode_val == "offline":
 
 if st.session_state.demo_mode:
     st.info("📌 **Demo Mode Active**: Viewing sample interaction data. Click **Reset** in sidebar to return to a clean session.")
+
+# Display Retry prompt if previous request timed out
+if st.session_state.retry_request:
+    retry_info = st.session_state.retry_request
+    col_r1, col_r2 = st.columns([6, 2])
+    with col_r1:
+        st.warning(f"⚠️ A prior request timed out (ID: `{retry_info['request_id']}`). Click Retry to resubmit without creating duplicate executions.")
+    with col_r2:
+        if st.button("🔁 Retry Request", type="primary", use_container_width=True):
+            with st.spinner("Retrying previous request..."):
+                agent_res, err, req_id = call_agent_api(
+                    query=retry_info.get("query"),
+                    thread_id=st.session_state.thread_id,
+                    approved=retry_info.get("approved"),
+                    calculation_id=retry_info.get("calculation_id"),
+                    agent_type=agent_key,
+                    execution_mode=exec_mode_val,
+                    request_id=retry_info["request_id"],
+                )
+            if err:
+                st.error(err)
+            elif agent_res:
+                st.session_state.retry_request = None
+                if agent_res.get("requires_approval") and agent_res.get("pending_calculation"):
+                    pending = agent_res["pending_calculation"]
+                    pending["bound_engine"] = agent_key
+                    pending["bound_mode"] = exec_mode_val
+                    pending["bound_thread_id"] = st.session_state.thread_id
+                    st.session_state.pending_approval = pending
+
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "response_id": agent_res.get("response_id", f"resp_{uuid.uuid4().hex[:10]}"),
+                    "content": agent_res.get("answer", ""),
+                    "steps": agent_res.get("steps", []),
+                    "tool_calls": agent_res.get("tool_calls", []),
+                    "citations": agent_res.get("citations", []),
+                    "query": retry_info.get("query", ""),
+                    "disclaimer": agent_res.get("disclaimer"),
+                })
+                st.rerun()
 
 # Welcome card when no messages exist yet
 if not st.session_state.messages:
@@ -450,6 +523,8 @@ if st.session_state.pending_approval:
     pending = st.session_state.pending_approval
     calc_id = pending.get("id")
     params = pending.get("params", {})
+    bound_engine = pending.get("bound_engine", agent_key)
+    bound_mode = pending.get("bound_mode", exec_mode_val)
 
     st.warning("⚠️ **Approval Required for Financial Calculation**")
     with st.container(border=True):
@@ -462,17 +537,17 @@ if st.session_state.pending_approval:
             st.markdown(f"**Season:** {str(params.get('season') or 'Statutory').title()}")
             st.markdown(f"**Scale of Finance:** ₹{params.get('scale_of_finance', 0):,.2f}/{params.get('scale_of_finance_unit', 'per_ha')}")
 
-        st.caption("PMFBY calculation uses statutory rates from records.json and pure arithmetic Decimal precision.")
+        st.caption(f"Bound to: Engine `{bound_engine}` | Mode `{bound_mode}` | Decimal precision arithmetic.")
 
         btn_cols = st.columns([2, 2, 6])
         with btn_cols[0]:
             if st.button("✅ Approve & Calculate", type="primary", use_container_width=True, key=f"btn_approve_{calc_id}"):
-                res, err = call_agent_api(
+                res, err, _ = call_agent_api(
                     thread_id=st.session_state.thread_id,
                     approved=True,
                     calculation_id=calc_id,
-                    agent_type=agent_key,
-                    execution_mode=exec_mode_val,
+                    agent_type=bound_engine,
+                    execution_mode=bound_mode,
                 )
                 if err:
                     st.error(err)
@@ -492,12 +567,12 @@ if st.session_state.pending_approval:
 
         with btn_cols[1]:
             if st.button("❌ Cancel Calculation", type="secondary", use_container_width=True, key=f"btn_cancel_{calc_id}"):
-                res, err = call_agent_api(
+                res, err, _ = call_agent_api(
                     thread_id=st.session_state.thread_id,
                     approved=False,
                     calculation_id=calc_id,
-                    agent_type=agent_key,
-                    execution_mode=exec_mode_val,
+                    agent_type=bound_engine,
+                    execution_mode=bound_mode,
                 )
                 if err:
                     st.error(err)
@@ -524,7 +599,7 @@ if user_input:
 
     # Call agent
     with st.spinner("Consulting PMFBY guidelines..."):
-        agent_res, err = call_agent_api(
+        agent_res, err, req_id = call_agent_api(
             query=user_input,
             thread_id=st.session_state.thread_id,
             agent_type=agent_key,
@@ -533,10 +608,22 @@ if user_input:
 
     if err:
         st.error(err)
+        # Store for retry
+        st.session_state.retry_request = {
+            "request_id": req_id,
+            "query": user_input,
+            "approved": None,
+            "calculation_id": None,
+        }
     elif agent_res:
+        st.session_state.retry_request = None
         # Check if calculation approval is needed
         if agent_res.get("requires_approval") and agent_res.get("pending_calculation"):
-            st.session_state.pending_approval = agent_res["pending_calculation"]
+            pending = agent_res["pending_calculation"]
+            pending["bound_engine"] = agent_key
+            pending["bound_mode"] = exec_mode_val
+            pending["bound_thread_id"] = st.session_state.thread_id
+            st.session_state.pending_approval = pending
 
         st.session_state.messages.append({
             "role": "assistant",

@@ -109,15 +109,15 @@ def evaluate_config(config: dict[str, Any], eval_items: list[dict]) -> dict[str,
             })
         else:
             total_answerable += 1
-            # Check retrieval relevance in retrieved chunks
-            matched_retrieval = [kw for kw in exp_kw if kw in retrieved_text]
-            retrieval_hit = len(matched_retrieval) >= max(1, len(exp_kw) // 2)
-            if retrieval_hit:
+            # 1. Evidence Support: verify retrieved chunks contain official PMFBY factual evidence
+            matched_evidence = [kw for kw in exp_kw if kw in retrieved_text]
+            has_evidence = len(matched_evidence) >= max(1, len(exp_kw) // 2)
+            if has_evidence:
                 retrieval_hits += 1
 
-            # Check answer correctness in generated answer text
+            # 2. Heuristic Answer Accuracy: verify generated answer contains key factual components
             matched_answer = [kw for kw in exp_kw if kw in answer]
-            # For compound question Q4, require essential components: 72 hours, channels, sum insured (58,800), and premium (1,176)
+            # For compound question Q4, require all 4 essential components: 72 hours, channels, sum insured (58,800), and premium (1,176)
             if qid == "Q4":
                 ans_hit = (
                     any(h in answer for h in ("72", "72 hours", "72h"))
@@ -131,25 +131,25 @@ def evaluate_config(config: dict[str, Any], eval_items: list[dict]) -> dict[str,
             if ans_hit:
                 answer_correct += 1
 
-            # Check genuine citation support
-            has_genuine_citation = bool(
+            # 3. Citation Completeness: verify citations include source and page metadata
+            citation_metadata_ok = bool(
                 citations and all(c.get("source") and c.get("page") for c in citations)
             )
-            if has_genuine_citation:
+            if citation_metadata_ok:
                 citation_valid += 1
 
             item_results.append({
                 "id": qid,
                 "type": "answerable",
-                "retrieval_matched": matched_retrieval,
+                "retrieval_matched": matched_evidence,
                 "answer_matched": matched_answer,
-                "retrieval_passed": retrieval_hit,
-                "answer_passed": ans_hit,
-                "citation_passed": has_genuine_citation,
+                "evidence_support_passed": has_evidence,
+                "heuristic_answer_passed": ans_hit,
+                "citation_completeness_passed": citation_metadata_ok,
                 "latency_ms": round(latency, 1),
             })
 
-    retrieval_recall = (retrieval_hits / total_answerable) * 100.0 if total_answerable else 0.0
+    evidence_support = (retrieval_hits / total_answerable) * 100.0 if total_answerable else 0.0
     ans_accuracy = (answer_correct / total_answerable) * 100.0 if total_answerable else 0.0
     refusal_rate = (refusal_correct / total_unanswerable) * 100.0 if total_unanswerable else 0.0
     citation_rate = (citation_valid / total_answerable) * 100.0 if total_answerable else 0.0
@@ -162,10 +162,10 @@ def evaluate_config(config: dict[str, Any], eval_items: list[dict]) -> dict[str,
         "chunk_size": config["chunk_size"],
         "top_k": config["top_k"],
         "total_chunks": len(chunks),
-        "retrieval_recall_pct": round(retrieval_recall, 1),
-        "answer_accuracy_pct": round(ans_accuracy, 1),
+        "evidence_support_pct": round(evidence_support, 1),
+        "heuristic_answer_accuracy_pct": round(ans_accuracy, 1),
         "refusal_rate_pct": round(refusal_rate, 1),
-        "citation_support_pct": round(citation_rate, 1),
+        "citation_completeness_pct": round(citation_rate, 1),
         "overall_accuracy_pct": round(overall_accuracy, 1),
         "avg_latency_ms": round(avg_latency, 1),
         "item_results": item_results,
@@ -181,19 +181,19 @@ def main():
         res = evaluate_config(cfg, eval_set)
         results.append(res)
 
-    print("\n" + "=" * 90)
+    print("\n" + "=" * 105)
     print("           RAG CONFIGURATION COMPARISON SUMMARY (15 QUESTIONS)")
-    print("=" * 90)
-    print(f"{'Configuration':<32} | {'Chunks':<7} | {'Recall':<7} | {'Ans Acc':<8} | {'Refusal':<8} | {'Overall':<8} | {'Latency'}")
-    print("-" * 90)
+    print("=" * 105)
+    print(f"{'Configuration':<30} | {'Chunks':<6} | {'Evidence':<8} | {'Heuristic':<9} | {'Refusal':<8} | {'Citation':<8} | {'Overall':<8} | {'Latency'}")
+    print("-" * 105)
     for r in results:
         print(
-            f"{r['name']:<32} | {r['total_chunks']:<7} | {r['retrieval_recall_pct']}%  | "
-            f"{r['answer_accuracy_pct']}%   | {r['refusal_rate_pct']}%   | {r['overall_accuracy_pct']}%  | {r['avg_latency_ms']} ms"
+            f"{r['name']:<30} | {r['total_chunks']:<6} | {r['evidence_support_pct']}%    | "
+            f"{r['heuristic_answer_accuracy_pct']}%     | {r['refusal_rate_pct']}%   | {r['citation_completeness_pct']}%   | {r['overall_accuracy_pct']}%  | {r['avg_latency_ms']} ms"
         )
-    print("=" * 90)
+    print("=" * 105)
 
-    winner = max(results, key=lambda x: (x["overall_accuracy_pct"], x["retrieval_recall_pct"], -x["avg_latency_ms"]))
+    winner = max(results, key=lambda x: (x["overall_accuracy_pct"], x["evidence_support_pct"], -x["avg_latency_ms"]))
     print(f"\nWINNER: {winner['name']} with {winner['overall_accuracy_pct']}% overall verified accuracy!")
 
     md_table = [
@@ -204,15 +204,15 @@ def main():
         "> [!NOTE]",
         "> Historical Note: The initial Day 8 evaluation reported a 93.3% keyword hit score based on searching a shared collection and matching keywords anywhere in retrieved text. The rigorous Day 10 re-evaluation verifies distinct isolated collections, synthesized answer accuracy, and refusal precision.",
         "",
-        "| Configuration | Collection | Chunk Size | Top-K | Retrieval Recall | Answer Accuracy | Refusal Accuracy (Q6 & Q15) | Citation Support | Overall Accuracy | Avg Latency | Result |",
+        "| Configuration | Collection | Chunk Size | Top-K | Evidence Support | Heuristic Answer Accuracy | Refusal Accuracy (Q6 & Q15) | Citation Completeness | Overall Accuracy | Avg Latency | Result |",
         "| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |",
     ]
     for r in results:
         status = "**WINNER**" if r["name"] == winner["name"] else "Alternative"
         md_table.append(
             f"| **{r['name']}** | `{r['collection_name']}` | {r['chunk_size']} chars | {r['top_k']} | "
-            f"{r['retrieval_recall_pct']}% | {r['answer_accuracy_pct']}% | {r['refusal_rate_pct']}% | "
-            f"{r['citation_support_pct']}% | {r['overall_accuracy_pct']}% | {r['avg_latency_ms']} ms | {status} |"
+            f"{r['evidence_support_pct']}% | {r['heuristic_answer_accuracy_pct']}% | {r['refusal_rate_pct']}% | "
+            f"{r['citation_completeness_pct']}% | {r['overall_accuracy_pct']}% | {r['avg_latency_ms']} ms | {status} |"
         )
     md_table.extend([
         "",

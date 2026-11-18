@@ -1,8 +1,9 @@
 """FastAPI service for FasalBima Sathi (Days 4–9)."""
+from __future__ import annotations
 import re
 import uuid
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Header
 from pydantic import BaseModel, Field
 
 from app.agent_loop import run_agent_loop
@@ -20,11 +21,98 @@ import threading
 from datetime import datetime
 import zoneinfo
 
+import hashlib
+from collections import OrderedDict
+import time
+
 ROOT = Path(__file__).resolve().parents[1]
 FEEDBACK_FILE = ROOT / "data" / "feedback.jsonl"
 IST = zoneinfo.ZoneInfo("Asia/Kolkata")
 _FEEDBACK_LOCK = threading.Lock()
-_IDEMPOTENCY_CACHE: dict[str, dict] = {}
+
+
+class IdempotencyManager:
+    """Thread-safe, bounded idempotency manager with payload conflict detection and concurrent in-flight synchronization."""
+
+    def __init__(self, max_size: int = 500, ttl_seconds: int = 1800):
+        self.max_size = max_size
+        self.ttl_seconds = ttl_seconds
+        self.cache: OrderedDict[str, dict] = OrderedDict()
+        self.in_flight: dict[str, threading.Event] = {}
+        self.lock = threading.Lock()
+
+    def _hash_payload(self, payload: AgentRequest) -> str:
+        s = f"{payload.thread_id}|{payload.query}|{payload.approved}|{payload.calculation_id}|{payload.agent_type}"
+        return hashlib.sha256(s.encode("utf-8")).hexdigest()
+
+    def check_or_register(self, request_id: str, payload: AgentRequest) -> tuple[dict | None, bool]:
+        """Returns (cached_response, is_in_flight).
+        
+        Raises HTTPException(409) if the same request_id is reused with different payload parameters.
+        """
+        payload_hash = self._hash_payload(payload)
+        now = time.time()
+
+        with self.lock:
+            # 1. Check existing cached response
+            if request_id in self.cache:
+                entry = self.cache[request_id]
+                if now - entry["timestamp"] < self.ttl_seconds:
+                    if entry["payload_hash"] != payload_hash:
+                        raise HTTPException(
+                            status_code=409,
+                            detail=f"Idempotency conflict: request_id '{request_id}' was previously submitted with different parameters.",
+                        )
+                    self.cache.move_to_end(request_id)
+                    return entry["response"], False
+                else:
+                    del self.cache[request_id]
+
+            # 2. Check if a request with this ID is currently being processed
+            if request_id in self.in_flight:
+                return None, True
+
+            # Register new in-flight execution
+            self.in_flight[request_id] = threading.Event()
+            return None, False
+
+    def wait_for_in_flight(self, request_id: str, timeout: float = 25.0) -> dict | None:
+        event = None
+        with self.lock:
+            event = self.in_flight.get(request_id)
+        if event:
+            finished = event.wait(timeout=timeout)
+            if finished:
+                with self.lock:
+                    if request_id in self.cache:
+                        return self.cache[request_id]["response"]
+        return None
+
+    def store_response(self, request_id: str, payload: AgentRequest, response: dict) -> None:
+        payload_hash = self._hash_payload(payload)
+        now = time.time()
+        with self.lock:
+            if request_id in self.in_flight:
+                self.in_flight[request_id].set()
+                del self.in_flight[request_id]
+
+            self.cache[request_id] = {
+                "payload_hash": payload_hash,
+                "response": response,
+                "timestamp": now,
+            }
+            while len(self.cache) > self.max_size:
+                self.cache.popitem(last=False)
+
+    def release_on_error(self, request_id: str) -> None:
+        with self.lock:
+            if request_id in self.in_flight:
+                self.in_flight[request_id].set()
+                del self.in_flight[request_id]
+
+
+_IDEMPOTENCY_MANAGER = IdempotencyManager()
+idempotency_manager = _IDEMPOTENCY_MANAGER
 
 DISCLAIMER = (
     "Information from official PMFBY guidelines, not insurance or legal advice. "
@@ -236,28 +324,48 @@ def ask(payload: AskRequest):
 
 
 @app.post("/agent")
-def agent(payload: AgentRequest):
+def agent(
+    payload: AgentRequest,
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    x_request_id: str | None = Header(default=None, alias="X-Request-Id"),
+):
     """Day 9 endpoint: PMFBY agent with memory and human-in-the-loop approval step."""
-    # 0. Check idempotency cache if request_id is supplied
-    if payload.request_id and payload.request_id in _IDEMPOTENCY_CACHE:
-        return _IDEMPOTENCY_CACHE[payload.request_id]
+    # 0. Check idempotency if request_id or header is supplied
+    req_id = payload.request_id or idempotency_key or x_request_id
+    if req_id:
+        payload.request_id = req_id
+        cached_resp, is_in_flight = _IDEMPOTENCY_MANAGER.check_or_register(req_id, payload)
+        if cached_resp is not None:
+            return cached_resp
+        if is_in_flight:
+            waited_resp = _IDEMPOTENCY_MANAGER.wait_for_in_flight(req_id, timeout=25.0)
+            if waited_resp is not None:
+                return waited_resp
 
     # 1. Reject empty or whitespace-only queries when approved is not passed
     if payload.query is not None and not payload.query.strip() and payload.approved is None:
+        if payload.request_id:
+            _IDEMPOTENCY_MANAGER.release_on_error(payload.request_id)
         raise HTTPException(status_code=400, detail="Query cannot be empty or whitespace.")
 
     # 2. Reject request with neither query nor approved flag
     if payload.query is None and payload.approved is None:
+        if payload.request_id:
+            _IDEMPOTENCY_MANAGER.release_on_error(payload.request_id)
         raise HTTPException(status_code=400, detail="Either 'query' or 'approved' must be provided.")
 
     # 3. For approval/resume, require both thread_id AND calculation_id
     if payload.approved is not None:
         if not payload.thread_id or not payload.thread_id.strip():
+            if payload.request_id:
+                _IDEMPOTENCY_MANAGER.release_on_error(payload.request_id)
             raise HTTPException(
                 status_code=400,
                 detail="A valid 'thread_id' is required to resume or cancel a pending calculation.",
             )
         if not payload.calculation_id or not payload.calculation_id.strip():
+            if payload.request_id:
+                _IDEMPOTENCY_MANAGER.release_on_error(payload.request_id)
             raise HTTPException(
                 status_code=400,
                 detail="A valid 'calculation_id' is required to approve or cancel a pending calculation.",
@@ -265,13 +373,20 @@ def agent(payload: AgentRequest):
 
     if payload.agent_type == "handwritten":
         if not payload.query or not payload.query.strip():
+            if payload.request_id:
+                _IDEMPOTENCY_MANAGER.release_on_error(payload.request_id)
             raise HTTPException(status_code=400, detail="query is required for handwritten agent")
-        result = run_agent_loop(payload.query, max_iterations=payload.max_iterations)
-        result["thread_id"] = payload.thread_id or f"session_{uuid.uuid4().hex[:12]}"
-        result["agent_type"] = "handwritten"
-        if payload.request_id:
-            _IDEMPOTENCY_CACHE[payload.request_id] = result
-        return result
+        try:
+            result = run_agent_loop(payload.query, max_iterations=payload.max_iterations)
+            result["thread_id"] = payload.thread_id or f"session_{uuid.uuid4().hex[:12]}"
+            result["agent_type"] = "handwritten"
+            if payload.request_id:
+                _IDEMPOTENCY_MANAGER.store_response(payload.request_id, payload, result)
+            return result
+        except Exception as err:
+            if payload.request_id:
+                _IDEMPOTENCY_MANAGER.release_on_error(payload.request_id)
+            raise HTTPException(status_code=500, detail=f"Agent loop error: {err}")
 
     try:
         result = run_langgraph_agent(
@@ -282,9 +397,11 @@ def agent(payload: AgentRequest):
         )
         result["agent_type"] = "langgraph"
         if payload.request_id:
-            _IDEMPOTENCY_CACHE[payload.request_id] = result
+            _IDEMPOTENCY_MANAGER.store_response(payload.request_id, payload, result)
         return result
     except Exception as err:
+        if payload.request_id:
+            _IDEMPOTENCY_MANAGER.release_on_error(payload.request_id)
         raise HTTPException(status_code=500, detail=f"Agent processing error: {err}")
 
 
@@ -355,8 +472,13 @@ def submit_feedback(payload: FeedbackRequest):
 
 
 @app.get("/feedback")
-def list_feedback(thread_id: str | None = Query(default=None, description="Optional session ID to filter feedback")):
-    """Retrieve collected feedback records, optionally filtered by session thread_id."""
+def list_feedback(
+    thread_id: str = Query(..., min_length=1, description="Session ID required to retrieve feedback records"),
+):
+    """Retrieve collected feedback records for the specified session thread_id.
+
+    Protects farmer privacy by strictly scoping feedback retrieval to the active session.
+    """
     if not FEEDBACK_FILE.exists():
         return {"count": 0, "feedback": []}
 
@@ -371,8 +493,6 @@ def list_feedback(thread_id: str | None = Query(default=None, description="Optio
                     except Exception:
                         pass
 
-    if thread_id:
-        entries = [e for e in entries if e.get("thread_id") == thread_id]
-
+    entries = [e for e in entries if e.get("thread_id") == thread_id]
     return {"count": len(entries), "feedback": entries}
 

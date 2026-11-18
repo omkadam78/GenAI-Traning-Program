@@ -422,9 +422,34 @@ def search_node(state: AgentState) -> Dict[str, Any]:
             )
 
         if search_res.get("hits"):
-            top_hit = search_res["hits"][0]
-            answer_parts.append(f"**PMFBY Guidelines:**\n{top_hit['text']}\n\n*(Source: {top_hit['source']}, Page {top_hit['page']})*")
-            confidence = 0.9
+            from app.llm import generate_chat_response
+
+            adapted_records = []
+            for c in search_res.get("hits", []):
+                adapted_records.append(
+                    {
+                        "id": c.get("id", c.get("chunk_id", 0)),
+                        "rule_topic": c.get("title", "PMFBY Guideline"),
+                        "rule_text": c.get("text", ""),
+                        "og_version": c.get("og_version", "Revamped OG (Kharif 2020 onwards)"),
+                        "applies_to": f"Page {c.get('page', 1)} of {c.get('source', '')}",
+                        "deadline_or_rate": f"Page {c.get('page', 1)} of {c.get('source', '')}",
+                        "source_url": c.get("source", ""),
+                        "score": c.get("score", 0.0),
+                    }
+                )
+
+            llm_res = generate_chat_response(
+                question=query,
+                prompt_version="v2",
+                top_k=len(adapted_records),
+                context_records=adapted_records,
+            )
+            answer_parts.append(llm_res.get("answer", ""))
+            confidence = float(llm_res.get("confidence", 0.9))
+            prov = llm_res.get("provider", "llm")
+            mod = llm_res.get("model", "default")
+            steps.append(f"Grounded answer synthesized using {prov} ({mod}).")
         else:
             answer_parts.append(
                 "No specific matching PMFBY rule chunk found. Please consult "

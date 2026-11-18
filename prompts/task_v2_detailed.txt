@@ -20,3 +20,4 @@ Special Rules:
 - If the question asks about personal claim approval/status, answer MUST begin with "I don't know." and confidence MUST be 0.0.
 - State applicable guideline version explicitly (e.g. Revamped OG Kharif 2020 vs 2016 guidelines).
 - Include concrete calculations where numbers (acreage, scale of finance, rates) are given.
+

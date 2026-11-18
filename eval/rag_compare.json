@@ -5,12 +5,12 @@
     "chunk_size": 400,
     "top_k": 3,
     "total_chunks": 2217,
-    "retrieval_recall_pct": 69.2,
-    "answer_accuracy_pct": 53.8,
+    "evidence_support_pct": 69.2,
+    "heuristic_answer_accuracy_pct": 53.8,
     "refusal_rate_pct": 100.0,
-    "citation_support_pct": 100.0,
+    "citation_completeness_pct": 100.0,
     "overall_accuracy_pct": 60.0,
-    "avg_latency_ms": 789.6,
+    "avg_latency_ms": 345.5,
     "item_results": [
       {
         "id": "Q1",
@@ -25,10 +25,10 @@
           "kharif",
           "sum insured"
         ],
-        "retrieval_passed": true,
-        "answer_passed": true,
-        "citation_passed": true,
-        "latency_ms": 1513.7
+        "evidence_support_passed": true,
+        "heuristic_answer_passed": true,
+        "citation_completeness_passed": true,
+        "latency_ms": 932.4
       },
       {
         "id": "Q2",
@@ -46,10 +46,10 @@
           "farm",
           "72 hours"
         ],
-        "retrieval_passed": true,
-        "answer_passed": true,
-        "citation_passed": true,
-        "latency_ms": 974.5
+        "evidence_support_passed": true,
+        "heuristic_answer_passed": true,
+        "citation_completeness_passed": true,
+        "latency_ms": 350.6
       },
       {
         "id": "Q3",
@@ -68,10 +68,10 @@
           "cut and spread",
           "drying"
         ],
-        "retrieval_passed": true,
-        "answer_passed": true,
-        "citation_passed": true,
-        "latency_ms": 976.6
+        "evidence_support_passed": true,
+        "heuristic_answer_passed": true,
+        "citation_completeness_passed": true,
+        "latency_ms": 359.2
       },
       {
         "id": "Q4",
@@ -82,10 +82,10 @@
           "crop insurance app",
           "14447"
         ],
-        "retrieval_passed": false,
-        "answer_passed": false,
-        "citation_passed": true,
-        "latency_ms": 917.5
+        "evidence_support_passed": false,
+        "heuristic_answer_passed": false,
+        "citation_completeness_passed": true,
+        "latency_ms": 389.7
       },
       {
         "id": "Q5",
@@ -104,16 +104,16 @@
           "revamped",
           "farmer"
         ],
-        "retrieval_passed": true,
-        "answer_passed": true,
-        "citation_passed": true,
-        "latency_ms": 778.3
+        "evidence_support_passed": true,
+        "heuristic_answer_passed": true,
+        "citation_completeness_passed": true,
+        "latency_ms": 334.6
       },
       {
         "id": "Q6",
         "type": "unanswerable",
         "passed": true,
-        "latency_ms": 0.1
+        "latency_ms": 0.0
       },
       {
         "id": "Q7",
@@ -122,10 +122,10 @@
         "answer_matched": [
           "kharif 2020"
         ],
-        "retrieval_passed": false,
-        "answer_passed": false,
-        "citation_passed": true,
-        "latency_ms": 800.3
+        "evidence_support_passed": false,
+        "heuristic_answer_passed": false,
+        "citation_completeness_passed": true,
+        "latency_ms": 373.5
       },
       {
         "id": "Q8",
@@ -137,10 +137,10 @@
         "answer_matched": [
           "75%"
         ],
-        "retrieval_passed": true,
-        "answer_passed": false,
-        "citation_passed": true,
-        "latency_ms": 829.8
+        "evidence_support_passed": true,
+        "heuristic_answer_passed": false,
+        "citation_completeness_passed": true,
+        "latency_ms": 331.3
       },
       {
         "id": "Q9",
@@ -159,10 +159,10 @@
           "malicious",
           "preventable"
         ],
-        "retrieval_passed": true,
-        "answer_passed": true,
-        "citation_passed": true,
-        "latency_ms": 957.0
+        "evidence_support_passed": true,
+        "heuristic_answer_passed": true,
+        "citation_completeness_passed": true,
+        "latency_ms": 358.7
       },
       {
         "id": "Q10",
@@ -174,10 +174,10 @@
         "answer_matched": [
           "grievance"
         ],
-        "retrieval_passed": false,
-        "answer_passed": false,
-        "citation_passed": true,
-        "latency_ms": 750.6
+        "evidence_support_passed": false,
+        "heuristic_answer_passed": false,
+        "citation_completeness_passed": true,
+        "latency_ms": 327.3
       },
       {
         "id": "Q11",
@@ -194,10 +194,10 @@
           "25%",
           "on-account"
         ],
-        "retrieval_passed": true,
-        "answer_passed": true,
-        "citation_passed": true,
-        "latency_ms": 753.3
+        "evidence_support_passed": true,
+        "heuristic_answer_passed": true,
+        "citation_completeness_passed": true,
+        "latency_ms": 356.7
       },
       {
         "id": "Q12",
@@ -209,10 +209,10 @@
         "answer_matched": [
           "bank"
         ],
-        "retrieval_passed": true,
-        "answer_passed": false,
-        "citation_passed": true,
-        "latency_ms": 917.3
+        "evidence_support_passed": true,
+        "heuristic_answer_passed": false,
+        "citation_completeness_passed": true,
+        "latency_ms": 376.3
       },
       {
         "id": "Q13",
@@ -229,10 +229,10 @@
           "horticultural",
           "actuarial"
         ],
-        "retrieval_passed": true,
-        "answer_passed": true,
-        "citation_passed": true,
-        "latency_ms": 779.2
+        "evidence_support_passed": true,
+        "heuristic_answer_passed": true,
+        "citation_completeness_passed": true,
+        "latency_ms": 391.3
       },
       {
         "id": "Q14",
@@ -243,16 +243,16 @@
         "answer_matched": [
           "scale of finance"
         ],
-        "retrieval_passed": false,
-        "answer_passed": false,
-        "citation_passed": true,
-        "latency_ms": 895.6
+        "evidence_support_passed": false,
+        "heuristic_answer_passed": false,
+        "citation_completeness_passed": true,
+        "latency_ms": 300.5
       },
       {
         "id": "Q15",
         "type": "unanswerable",
         "passed": true,
-        "latency_ms": 0.1
+        "latency_ms": 0.0
       }
     ]
   },
@@ -262,12 +262,12 @@
     "chunk_size": 750,
     "top_k": 5,
     "total_chunks": 1206,
-    "retrieval_recall_pct": 84.6,
-    "answer_accuracy_pct": 69.2,
+    "evidence_support_pct": 84.6,
+    "heuristic_answer_accuracy_pct": 69.2,
     "refusal_rate_pct": 100.0,
-    "citation_support_pct": 100.0,
+    "citation_completeness_pct": 100.0,
     "overall_accuracy_pct": 73.3,
-    "avg_latency_ms": 788.1,
+    "avg_latency_ms": 348.4,
     "item_results": [
       {
         "id": "Q1",
@@ -279,10 +279,10 @@
           "sum insured"
         ],
         "answer_matched": [],
-        "retrieval_passed": true,
-        "answer_passed": false,
-        "citation_passed": true,
-        "latency_ms": 994.3
+        "evidence_support_passed": true,
+        "heuristic_answer_passed": false,
+        "citation_completeness_passed": true,
+        "latency_ms": 483.2
       },
       {
         "id": "Q2",
@@ -300,10 +300,10 @@
           "farm",
           "72 hours"
         ],
-        "retrieval_passed": true,
-        "answer_passed": true,
-        "citation_passed": true,
-        "latency_ms": 1088.4
+        "evidence_support_passed": true,
+        "heuristic_answer_passed": true,
+        "citation_completeness_passed": true,
+        "latency_ms": 442.6
       },
       {
         "id": "Q3",
@@ -322,10 +322,10 @@
           "cut and spread",
           "drying"
         ],
-        "retrieval_passed": true,
-        "answer_passed": true,
-        "citation_passed": true,
-        "latency_ms": 1004.0
+        "evidence_support_passed": true,
+        "heuristic_answer_passed": true,
+        "citation_completeness_passed": true,
+        "latency_ms": 484.6
       },
       {
         "id": "Q4",
@@ -336,10 +336,10 @@
           "crop insurance app",
           "14447"
         ],
-        "retrieval_passed": false,
-        "answer_passed": false,
-        "citation_passed": true,
-        "latency_ms": 899.1
+        "evidence_support_passed": false,
+        "heuristic_answer_passed": false,
+        "citation_completeness_passed": true,
+        "latency_ms": 482.4
       },
       {
         "id": "Q5",
@@ -358,26 +358,26 @@
           "revamped",
           "farmer"
         ],
-        "retrieval_passed": true,
-        "answer_passed": true,
-        "citation_passed": true,
-        "latency_ms": 924.4
+        "evidence_support_passed": true,
+        "heuristic_answer_passed": true,
+        "citation_completeness_passed": true,
+        "latency_ms": 501.3
       },
       {
         "id": "Q6",
         "type": "unanswerable",
         "passed": true,
-        "latency_ms": 0.1
+        "latency_ms": 0.0
       },
       {
         "id": "Q7",
         "type": "answerable",
         "retrieval_matched": [],
         "answer_matched": [],
-        "retrieval_passed": false,
-        "answer_passed": false,
-        "citation_passed": true,
-        "latency_ms": 729.6
+        "evidence_support_passed": false,
+        "heuristic_answer_passed": false,
+        "citation_completeness_passed": true,
+        "latency_ms": 320.9
       },
       {
         "id": "Q8",
@@ -390,10 +390,10 @@
           "prevented sowing",
           "75%"
         ],
-        "retrieval_passed": true,
-        "answer_passed": true,
-        "citation_passed": true,
-        "latency_ms": 801.3
+        "evidence_support_passed": true,
+        "heuristic_answer_passed": true,
+        "citation_completeness_passed": true,
+        "latency_ms": 335.8
       },
       {
         "id": "Q9",
@@ -412,10 +412,10 @@
           "malicious",
           "preventable"
         ],
-        "retrieval_passed": true,
-        "answer_passed": true,
-        "citation_passed": true,
-        "latency_ms": 943.6
+        "evidence_support_passed": true,
+        "heuristic_answer_passed": true,
+        "citation_completeness_passed": true,
+        "latency_ms": 383.3
       },
       {
         "id": "Q10",
@@ -431,10 +431,10 @@
           "grievance",
           "committee"
         ],
-        "retrieval_passed": true,
-        "answer_passed": true,
-        "citation_passed": true,
-        "latency_ms": 913.1
+        "evidence_support_passed": true,
+        "heuristic_answer_passed": true,
+        "citation_completeness_passed": true,
+        "latency_ms": 333.2
       },
       {
         "id": "Q11",
@@ -452,10 +452,10 @@
           "25%",
           "on-account"
         ],
-        "retrieval_passed": true,
-        "answer_passed": true,
-        "citation_passed": true,
-        "latency_ms": 928.6
+        "evidence_support_passed": true,
+        "heuristic_answer_passed": true,
+        "citation_completeness_passed": true,
+        "latency_ms": 312.7
       },
       {
         "id": "Q12",
@@ -472,10 +472,10 @@
           "forward",
           "insurance company"
         ],
-        "retrieval_passed": true,
-        "answer_passed": true,
-        "citation_passed": true,
-        "latency_ms": 813.9
+        "evidence_support_passed": true,
+        "heuristic_answer_passed": true,
+        "citation_completeness_passed": true,
+        "latency_ms": 307.3
       },
       {
         "id": "Q13",
@@ -492,10 +492,10 @@
           "horticultural",
           "actuarial"
         ],
-        "retrieval_passed": true,
-        "answer_passed": true,
-        "citation_passed": true,
-        "latency_ms": 884.3
+        "evidence_support_passed": true,
+        "heuristic_answer_passed": true,
+        "citation_completeness_passed": true,
+        "latency_ms": 350.8
       },
       {
         "id": "Q14",
@@ -507,10 +507,10 @@
         "answer_matched": [
           "scale of finance"
         ],
-        "retrieval_passed": true,
-        "answer_passed": false,
-        "citation_passed": true,
-        "latency_ms": 897.2
+        "evidence_support_passed": true,
+        "heuristic_answer_passed": false,
+        "citation_completeness_passed": true,
+        "latency_ms": 488.5
       },
       {
         "id": "Q15",

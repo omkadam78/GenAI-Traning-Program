@@ -106,10 +106,10 @@ The evaluation in `eval/run_eval.py` tests 15 scenarios from `eval/eval_set.json
 > - **Historical Day 8 Benchmark**: Reported a 93.3% keyword hit score based on searching a shared collection and checking whether keywords appeared anywhere in retrieved text.
 > - **Day 10 Rigorous Evaluation**: Each chunk-size configuration indexes and queries its own isolated Chroma collection (`fasalbima_chunks_400` vs `fasalbima_chunks_750`) without cache collisions, and evaluates retrieval recall, answer correctness (requiring synthesized answers to contain necessary facts), citation validity, and refusal precision separately.
 
-| Configuration | Collection | Chunk Size | Top-K | Retrieval Recall | Answer Accuracy | Refusal Accuracy (Q6 & Q15) | Citation Support | Overall Accuracy | Avg Latency | Result |
+| Configuration | Collection | Chunk Size | Top-K | Evidence Support | Heuristic Answer Accuracy | Refusal Accuracy (Q6 & Q15) | Citation Completeness | Overall Accuracy | Avg Latency | Result |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Config A (Compact / top-3)** | `fasalbima_chunks_400` | 400 chars | 3 | 69.2% | 53.8% | 100.0% | 100.0% | 60.0% | 789.6 ms | Alternative |
-| **Config B (Broader Context / top-5)** | `fasalbima_chunks_750` | 750 chars | 5 | 84.6% | 69.2% | 100.0% | 100.0% | 73.3% | 788.1 ms | **WINNER** |
+| **Config A (Compact / top-3)** | asalbima_chunks_400 | 400 chars | 3 | 69.2% | 53.8% | 100.0% | 100.0% | 60.0% | 345.5 ms | Alternative |
+| **Config B (Broader Context / top-5)** | asalbima_chunks_750 | 750 chars | 5 | 84.6% | 69.2% | 100.0% | 100.0% | 73.3% | 348.4 ms | **WINNER** |
 
 **Winner Analysis**: **Config B** provides superior semantic context retention across complex multi-clause PMFBY rules (such as prevented sowing, post-harvest drying windows, and localized calamity timelines) without fragmenting legal clauses across chunk boundaries.
 

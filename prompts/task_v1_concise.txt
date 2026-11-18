@@ -19,3 +19,4 @@ Return ONLY a valid JSON object matching this schema:
 Special Rules:
 - If the question asks about personal claim approval/status, answer MUST begin with "I don't know." and confidence MUST be 0.0.
 - Keep the answer crisp and easy for a farmer to read on a mobile phone.
+
