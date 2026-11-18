@@ -563,6 +563,21 @@ def pmfby_knowledge_search(query: str, top_k: int = 3, collection_name: Optional
     if not query or not query.strip():
         raise ValueError("Search query cannot be empty.")
     hits = query_semantic(query, top_k=top_k, collection_name=collection_name or "fasalbima_sathi_chunks")
+    # Short structured provisions complement long PDF passages. For a general
+    # premium question include every crop category, rather than just Kharif.
+    from app.smart_search import smart_search
+    records = load_records()
+    general_rates = 'premium' in query.casefold() and not any(
+        word in query.casefold() for word in ('kharif', 'rabi', 'soybean', 'wheat', 'cotton'))
+    selected = ([r for r in records if 'premium cap' in r.get('rule_topic', '').lower()]
+                if general_rates else smart_search(records, query, top_k=2))
+    provisions = [{
+        'chunk_id': f"record_{r['id']}", 'text': r['rule_text'],
+        'title': r['rule_topic'], 'source': r.get('source_url', ''),
+        'page': None, 'og_version': r.get('og_version', ''),
+        'score': r.get('score', 1.0),
+    } for r in selected]
+    hits = provisions + hits
     return {
         "query": query,
         "count": len(hits),

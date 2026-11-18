@@ -2,6 +2,38 @@
 
 An AI-powered assistant for the Pradhan Mantri Fasal Bima Yojana (PMFBY).
 
+## Farmer interface and live AI fixes (18 November 2026)
+
+The interface now presents three tasks: **Ask a question**, **Estimate premium**, and
+**Report crop loss**. Technical engine, HTTP/offline and session controls are removed.
+Premium estimates use a guided form and explicit confirmation. The loss form asks
+for both date and time and displays a live countdown with reporting channels.
+Chat retains clickable official sources, feedback and a conversation reset.
+
+![Farmer interface](docs/images/farmer-ui.jpg)
+
+The previous configured model IDs were not usable for the supplied accounts.
+`GROQ_MODEL=openai/gpt-oss-20b` was verified with a real generation request.
+Gemini model listing succeeds, but generation with `gemini-flash-latest` timed out
+during verification; do not claim that fallback has been live-verified.
+The farmer-facing LangGraph answer path no longer silently substitutes offline
+templates after provider failure. Local premium/deadline tools remain deterministic.
+General premium-rate questions are routed to knowledge answering, not a calculator
+that demands land details. Configuration is read on each request without importing
+secrets into process environment. Keep real keys in ignored `.env` only.
+
+Start the backend and UI from the same project checkout:
+
+```powershell
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+# In another terminal:
+python -m streamlit run ui/app.py
+```
+
+Set `FASALBIMA_API_URL` only for a different backend address. The UI does not
+silently start or switch backends. Live API checks are separate from automated
+tests, which run offline and isolate feedback storage.
+
 ## Problem
 Farmers often face difficulty understanding crop insurance guidelines, premium calculations, claim procedures, and statutory deadlines (such as the 72-hour localized calamity intimation window).
 

@@ -58,6 +58,8 @@ class AgentState(TypedDict, total=False):
     status: str  # "completed", "approval_required", "cancelled", "rejected", "clarification_needed", "error"
     answer: str
     confidence: float
+    provider: str
+    model: str
 
 
 def classify_node(state: AgentState) -> Dict[str, Any]:
@@ -444,6 +446,7 @@ def search_node(state: AgentState) -> Dict[str, Any]:
                 prompt_version="v2",
                 top_k=len(adapted_records),
                 context_records=adapted_records,
+                allow_offline_fallback=False,
             )
             answer_parts.append(llm_res.get("answer", ""))
             confidence = float(llm_res.get("confidence", 0.9))
@@ -459,7 +462,7 @@ def search_node(state: AgentState) -> Dict[str, Any]:
 
         answer = "\n\n".join(answer_parts)
     except Exception as err:
-        answer = f"Knowledge base search encountered an error: {err}"
+        answer = "Sorry, I could not get a reliable answer right now. Please try again shortly. For urgent crop-loss reporting, contact your insurer or agriculture office."
         confidence = 0.0
 
     return {
@@ -470,6 +473,8 @@ def search_node(state: AgentState) -> Dict[str, Any]:
         "steps": steps,
         "tool_calls": tool_calls,
         "citations": citations,
+        "provider": locals().get("prov", "unavailable"),
+        "model": locals().get("mod", ""),
     }
 
 
@@ -639,6 +644,8 @@ def run_langgraph_agent(
         "query": query or result.get("query", ""),
         "thread_id": active_thread,
         "answer": result.get("answer", ""),
+        "provider": result.get("provider", ""),
+        "model": result.get("model", ""),
         "status": result.get("status", "completed"),
         "requires_approval": result.get("requires_approval", False),
         "intent": result.get("intent", ""),

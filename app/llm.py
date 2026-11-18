@@ -19,15 +19,14 @@ import re
 import time
 from typing import Any, Optional
 
-from dotenv import load_dotenv
+from dotenv import dotenv_values, load_dotenv
 import requests
 
 from app.records import load_records
 from app.smart_search import smart_search
 
 ROOT = Path(__file__).resolve().parents[1]
-# Always reload .env so changes made by user/tests are picked up dynamically
-load_dotenv(ROOT / ".env", override=True)
+# Read configuration per request. Do not mutate process environment at import time.
 
 PROMPTS_DIR = ROOT / "prompts"
 SYSTEM_PROMPT_PATH = PROMPTS_DIR / "system_prompt.txt"
@@ -35,8 +34,8 @@ PROMPT_V1_PATH = PROMPTS_DIR / "task_v1_concise.txt"
 PROMPT_V2_PATH = PROMPTS_DIR / "task_v2_detailed.txt"
 
 # Current official default models
-GROQ_DEFAULT_MODEL = "llama-3.3-70b-versatile"
-GEMINI_DEFAULT_MODEL = "gemini-1.5-flash"
+GROQ_DEFAULT_MODEL = "openai/gpt-oss-20b"
+GEMINI_DEFAULT_MODEL = "gemini-flash-latest"
 
 OUT_OF_SCOPE_PATTERNS = (
     r"\bmy\s+(?:pmfby\s+)?claim\b.*\bapproved\b",
@@ -93,14 +92,13 @@ def get_llm_config() -> dict[str, Any]:
     
     Reads dynamically from environment to allow runtime key injection.
     """
-    load_dotenv(ROOT / ".env", override=False)
+    settings = {**dotenv_values(ROOT / ".env"), **os.environ}
+    pref = str(settings.get("LLM_PROVIDER") or "groq").strip().lower()
+    groq_key = str(settings.get("GROQ_API_KEY") or "").strip()
+    gemini_key = str(settings.get("GEMINI_API_KEY") or "").strip()
 
-    pref = os.environ.get("LLM_PROVIDER", "groq").strip().lower()
-    groq_key = os.environ.get("GROQ_API_KEY", "").strip()
-    gemini_key = os.environ.get("GEMINI_API_KEY", "").strip()
-
-    groq_model = os.environ.get("GROQ_MODEL", GROQ_DEFAULT_MODEL).strip() or GROQ_DEFAULT_MODEL
-    gemini_model = os.environ.get("GEMINI_MODEL", GEMINI_DEFAULT_MODEL).strip() or GEMINI_DEFAULT_MODEL
+    groq_model = str(settings.get("GROQ_MODEL") or GROQ_DEFAULT_MODEL).strip()
+    gemini_model = str(settings.get("GEMINI_MODEL") or GEMINI_DEFAULT_MODEL).strip()
 
     primary_provider: str
     primary_key: str
@@ -178,6 +176,7 @@ def _call_groq_api(
             {"role": "user", "content": user_prompt},
         ],
         "temperature": 0.1,
+        "max_completion_tokens": 1200,
         "response_format": {"type": "json_object"},
     }
 
@@ -241,7 +240,7 @@ def _call_groq_api(
                 continue
             raise last_error
         except requests.exceptions.ConnectionError as exc:
-            last_error = LLMError(f"Groq network connection failed: {exc}")
+            last_error = LLMError("Groq network connection failed.")
             if attempt < max_retries:
                 time.sleep((2 ** attempt) * 0.5)
                 continue
@@ -268,6 +267,7 @@ def _call_gemini_api(
         "generationConfig": {
             "temperature": 0.1,
             "responseMimeType": "application/json",
+            "maxOutputTokens": 1200,
         },
     }
 
@@ -329,7 +329,7 @@ def _call_gemini_api(
                 continue
             raise last_error
         except requests.exceptions.ConnectionError as exc:
-            last_error = LLMError(f"Gemini network connection failed: {exc}")
+            last_error = LLMError("Gemini network connection failed.")
             if attempt < max_retries:
                 time.sleep((2 ** attempt) * 0.5)
                 continue
@@ -340,31 +340,52 @@ def _call_gemini_api(
     raise LLMError("Gemini request failed with unknown error.")
 
 
+def _parse_confidence(conf_val: Any) -> float:
+    """Safely parse model confidence into a float between 0.0 and 1.0."""
+    if isinstance(conf_val, (int, float)):
+        return max(0.0, min(1.0, float(conf_val)))
+    if isinstance(conf_val, str):
+        v = conf_val.strip().lower()
+        if v in ("high", "very high", "certain"):
+            return 0.95
+        if v in ("medium", "moderate"):
+            return 0.75
+        if v in ("low", "uncertain"):
+            return 0.4
+        try:
+            return max(0.0, min(1.0, float(v)))
+        except ValueError:
+            return 0.9
+    return 0.9
+
+
 def _parse_llm_json(raw_text: str) -> dict[str, Any]:
-    """Parse JSON from model response, stripping markdown fences if present."""
+    """Parse JSON from model response, stripping markdown fences or extracting JSON object."""
     text = raw_text.strip()
     if text.startswith("```"):
         text = re.sub(r"^```(?:json)?\s*", "", text)
         text = re.sub(r"\s*```$", "", text)
         text = text.strip()
 
+    data = None
     try:
         data = json.loads(text)
-        if isinstance(data, dict) and "answer" in data:
-            return {
-                "answer": str(data.get("answer", "")).strip(),
-                "confidence": float(data.get("confidence", 0.9)),
-                "follow_up": str(data.get("follow_up", "")).strip(),
-            }
     except Exception:
-        pass
+        match = re.search(r"(\{.*\})", text, re.DOTALL)
+        if match:
+            try:
+                data = json.loads(match.group(1))
+            except Exception:
+                pass
 
-    # Fallback to entire text as answer if JSON decoding failed
-    return {
-        "answer": text,
-        "confidence": 0.85,
-        "follow_up": "Would you like further guidance on PMFBY guidelines or localized intimation?",
-    }
+    if isinstance(data, dict) and isinstance(data.get("answer"), str) and data["answer"].strip():
+        return {
+            "answer": str(data.get("answer", "")).strip(),
+            "confidence": _parse_confidence(data.get("confidence", 0.9)),
+            "follow_up": str(data.get("follow_up", "")).strip(),
+        }
+
+    raise LLMError("The AI service returned an invalid answer. Please try again.")
 
 
 def _offline_fallback(question: str, matches: list[dict], prompt_version: str) -> dict[str, Any]:
@@ -455,7 +476,12 @@ def generate_chat_response(
         }
 
     records = context_records if context_records is not None else load_records()
-    matches = smart_search(records, question, top_k=top_k)
+    # Preserve evidence order so [1], [2], ... identify the same sources the UI shows.
+    matches = list(records[:top_k]) if context_records is not None else smart_search(records, question, top_k=top_k)
+    if not matches:
+        return {"answer": "I don't know. I could not find supporting information in the official documents. Please ask a more specific PMFBY question.",
+                "confidence": 0.0, "follow_up": "Which crop, season or insurance rule would you like help with?",
+                "citations": [], "provider": "evidence-guard", "model": "none", "fallback_occurred": False}
 
     # Citations metadata
     citations = [
@@ -488,6 +514,8 @@ def generate_chat_response(
     mode = config["mode"]
 
     if mode == "offline":
+        if not allow_offline_fallback:
+            raise LLMError("The answer service is not configured for live AI. Please ask the project administrator to check the API configuration.")
         result = _offline_fallback(question, matches, prompt_version)
         return {
             "answer": result["answer"],
@@ -569,7 +597,7 @@ def generate_chat_response(
             # Both failed
 
     if not allow_offline_fallback:
-        raise LLMError(f"LLM request failed: Primary ({primary_prov}): {primary_error}")
+        raise LLMError("The AI answer service is temporarily unavailable. Please try again shortly. Your question was not answered by an offline substitute.")
 
     # Fallback to offline rule engine if live LLM is completely unavailable,
     # but HONESTLY identify provider as deterministic-rule-engine

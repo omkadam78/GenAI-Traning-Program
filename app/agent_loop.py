@@ -107,8 +107,9 @@ def extract_premium_params(query: str) -> Dict[str, Any]:
         actuarial_rate = float(act_match.group(1))
 
     is_calc_intent = bool(
-        "premium" in q
-        or "calculate" in q
+        "calculate" in q
+        or "estimate" in q
+        or ("premium" in q and (area_val is not None or scale_val is not None))
         or "sum insured" in q
         or "scale of finance" in q
         or "sof" in q

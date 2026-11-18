@@ -295,7 +295,7 @@ def test_llm_automatic_secondary_fallback():
                 question="What is the deadline?",
                 prompt_version="v2",
                 top_k=1,
-                context_records=[{"rule_topic": "Intimation", "rule_text": "72h window"}],
+                context_records=[{"rule_topic": "Claim deadline", "rule_text": "The reporting deadline is 72 hours."}],
             )
 
             assert res["provider"] == "gemini"
