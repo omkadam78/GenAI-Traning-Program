@@ -11,7 +11,17 @@ from app.llm import generate_chat_response
 from app.rag import ask_rag
 from app.records import get_by_id, load_records
 from app.smart_search import smart_search
+from app.tools import pmfby_claim_deadline_check
 from app.vectorstore import query_semantic
+from pathlib import Path
+import json
+import logging
+from datetime import datetime
+import zoneinfo
+
+ROOT = Path(__file__).resolve().parents[1]
+FEEDBACK_FILE = ROOT / "data" / "feedback.jsonl"
+IST = zoneinfo.ZoneInfo("Asia/Kolkata")
 
 DISCLAIMER = (
     "Information from official PMFBY guidelines, not insurance or legal advice. "
@@ -61,12 +71,25 @@ class AgentRequest(BaseModel):
     query: str | None = Field(default=None, description="Farmer query or calculation request")
     thread_id: str | None = Field(default=None, description="Session ID for stateful agent memory")
     approved: bool | None = Field(default=None, description="Approval flag (true to confirm, false to cancel)")
+    calculation_id: str | None = Field(default=None, description="Pending calculation ID to bind approval")
     agent_type: str = Field(
         default="langgraph",
         pattern="^(langgraph|handwritten)$",
         description="Agent implementation: 'langgraph' (with memory & approval) or 'handwritten'",
     )
     max_iterations: int = Field(default=5, ge=1, le=10, description="Maximum reasoning/tool iterations")
+
+
+class ClaimClockRequest(BaseModel):
+    loss_timestamp: str = Field(..., min_length=1, description="Date/time of calamity (e.g. 'YYYY-MM-DD HH:MM', 'yesterday at 9 pm')")
+    window_hours: int = Field(default=72, ge=1, le=168, description="Statutory intimation window (default 72 hours)")
+
+
+class FeedbackRequest(BaseModel):
+    thread_id: str = Field(..., min_length=1, description="Conversation session ID")
+    query: str = Field(..., min_length=1, description="Farmer question")
+    rating: str = Field(..., pattern="^(up|down)$", description="Rating: 'up' (thumbs up) or 'down' (thumbs down)")
+    comment: str | None = Field(default=None, description="Optional farmer feedback comment")
 
 
 def _is_personal_status_query(question: str) -> bool:
@@ -238,9 +261,85 @@ def agent(payload: AgentRequest):
             query=payload.query,
             thread_id=payload.thread_id,
             approved=payload.approved,
+            calculation_id=payload.calculation_id,
         )
         result["agent_type"] = "langgraph"
         return result
     except Exception as err:
         raise HTTPException(status_code=500, detail=f"Agent processing error: {err}")
+
+
+@app.post("/claim-clock")
+def check_claim_clock(payload: ClaimClockRequest):
+    """Day 10 signature feature: 72-hour localized calamity intimation clock."""
+    try:
+        clock_res = pmfby_claim_deadline_check(
+            loss_timestamp=payload.loss_timestamp,
+            window_hours=payload.window_hours,
+        )
+        return clock_res
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err))
+    except Exception as err:
+        raise HTTPException(status_code=500, detail=f"Claim clock calculation failed: {err}")
+
+
+@app.post("/feedback")
+def submit_feedback(payload: FeedbackRequest):
+    """Day 10 endpoint: Collect thumbs up/down user feedback with deduplication."""
+    FEEDBACK_FILE.parent.mkdir(parents=True, exist_ok=True)
+    existing_entries = []
+    if FEEDBACK_FILE.exists():
+        with open(FEEDBACK_FILE, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    try:
+                        existing_entries.append(json.loads(line))
+                    except Exception:
+                        pass
+
+    # Deduplicate by (thread_id, query)
+    updated = False
+    new_entry = {
+        "id": f"fb_{uuid.uuid4().hex[:8]}",
+        "timestamp": datetime.now(tz=IST).isoformat(),
+        "thread_id": payload.thread_id,
+        "query": payload.query,
+        "rating": payload.rating,
+        "comment": payload.comment,
+    }
+
+    for idx, entry in enumerate(existing_entries):
+        if entry.get("thread_id") == payload.thread_id and entry.get("query") == payload.query:
+            existing_entries[idx] = new_entry
+            updated = True
+            break
+
+    if not updated:
+        existing_entries.append(new_entry)
+
+    with open(FEEDBACK_FILE, "w", encoding="utf-8") as f:
+        for entry in existing_entries:
+            f.write(json.dumps(entry) + "\n")
+
+    return {"status": "success", "updated": updated, "entry": new_entry}
+
+
+@app.get("/feedback")
+def list_feedback():
+    """Retrieve all collected feedback records."""
+    if not FEEDBACK_FILE.exists():
+        return {"count": 0, "feedback": []}
+
+    entries = []
+    with open(FEEDBACK_FILE, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                try:
+                    entries.append(json.loads(line))
+                except Exception:
+                    pass
+    return {"count": len(entries), "feedback": entries}
 
