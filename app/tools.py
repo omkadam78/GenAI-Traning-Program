@@ -81,55 +81,76 @@ CROP_CATEGORY_MAP = {
 
 
 def load_rate_table_from_records() -> Dict[str, Dict[str, Any]]:
-    """Extract official premium rates directly from records.json."""
+    """Extract official premium rates directly from records.json.
+
+    Strictly refuses to substitute hardcoded rates when records are missing,
+    malformed, ambiguous, or conflicting.
+    """
     records = load_records()
+    if not records:
+        raise ValueError(
+            "Official PMFBY records are missing or empty in data/records.json. "
+            "Cannot verify statutory premium rates from official evidence."
+        )
+
     rate_table: Dict[str, Dict[str, Any]] = {}
 
     for r in records:
         text = (r.get("rule_topic", "") + " " + r.get("rule_text", "")).lower()
-        deadline_or_rate = r.get("deadline_or_rate", "")
+        deadline_or_rate = str(r.get("deadline_or_rate", "")).strip()
+        version = r.get("og_version", "Revamped OG (Kharif 2020 onwards)")
 
+        # Only process records that define premium caps or rates
+        if "premium cap" not in text and "premium rate" not in text:
+            continue
+
+        cat = None
         if "kharif" in text and ("food" in text or "oilseed" in text):
-            match = re.search(r"(\d+(?:\.\d+)?)\s*%", deadline_or_rate)
-            rate_dec = Decimal(match.group(1)) if match else Decimal("2.0")
-            rate_table["kharif_foodgrain_oilseed"] = {
-                "rate_percent": rate_dec,
-                "record_id": r.get("id"),
-                "rule_topic": r.get("rule_topic"),
-                "og_version": r.get("og_version"),
-                "source_url": r.get("source_url"),
-            }
+            cat = "kharif_foodgrain_oilseed"
         elif "rabi" in text and ("food" in text or "oilseed" in text):
-            match = re.search(r"(\d+(?:\.\d+)?)\s*%", deadline_or_rate)
-            rate_dec = Decimal(match.group(1)) if match else Decimal("1.5")
-            rate_table["rabi_foodgrain_oilseed"] = {
-                "rate_percent": rate_dec,
-                "record_id": r.get("id"),
-                "rule_topic": r.get("rule_topic"),
-                "og_version": r.get("og_version"),
-                "source_url": r.get("source_url"),
-            }
+            cat = "rabi_foodgrain_oilseed"
         elif "commercial" in text or "horticultural" in text:
+            cat = "commercial_horticultural"
+
+        if cat:
             match = re.search(r"(\d+(?:\.\d+)?)\s*%", deadline_or_rate)
-            rate_dec = Decimal(match.group(1)) if match else Decimal("5.0")
-            rate_table["commercial_horticultural"] = {
+            if not match:
+                raise ValueError(
+                    f"Malformed rate evidence in records.json for {cat}: "
+                    f"'{deadline_or_rate}' lacks a valid numeric percentage."
+                )
+            try:
+                rate_dec = Decimal(match.group(1))
+            except Exception:
+                raise ValueError(
+                    f"Malformed rate percentage '{match.group(1)}' for {cat} in records.json."
+                )
+
+            # Check for conflicting rates in the same category from different records
+            if cat in rate_table and rate_table[cat]["rate_percent"] != rate_dec:
+                prev_ver = rate_table[cat]["og_version"]
+                if prev_ver != version:
+                    raise ValueError(
+                        f"Conflicting statutory rates found in records.json for {cat}: "
+                        f"{rate_table[cat]['rate_percent']}% ({prev_ver}) vs {rate_dec}% ({version}). "
+                        "Conflicting guideline versions require explicit notification clarification."
+                    )
+
+            rate_table[cat] = {
                 "rate_percent": rate_dec,
                 "record_id": r.get("id"),
                 "rule_topic": r.get("rule_topic"),
-                "og_version": r.get("og_version"),
+                "og_version": version,
                 "source_url": r.get("source_url"),
             }
 
-    # Ensure all three standard categories exist with official guideline references
-    for key, default_rate in DEFAULT_RATE_MAP.items():
+    # Verify that required statutory categories are covered by authentic records
+    for key in ("kharif_foodgrain_oilseed", "rabi_foodgrain_oilseed", "commercial_horticultural"):
         if key not in rate_table:
-            rate_table[key] = {
-                "rate_percent": default_rate,
-                "record_id": None,
-                "rule_topic": key.replace("_", " ").title(),
-                "og_version": "Revamped OG (Kharif 2020 onwards), Para 13.1 Table 1",
-                "source_url": "https://pmfby.gov.in/pdf/Revamped%20OGs_Final.pdf",
-            }
+            raise ValueError(
+                f"Missing statutory rate evidence for '{key}' in records.json. "
+                "Cannot compute farmer premium without official guideline records."
+            )
 
     return rate_table
 
@@ -166,7 +187,7 @@ def resolve_crop_and_category(
 ) -> tuple[str, str, str]:
     """Resolve normalized crop name, season ('kharif'/'rabi'/'annual'), and rate category.
 
-    Raises ValueError if evidence is missing or ambiguous.
+    Raises ValueError if evidence is missing, conflicting, or ambiguous.
     """
     if not crop and not crop_type:
         raise ValueError("Crop name is required. Please specify the crop (e.g. 'soybean', 'wheat', 'cotton').")
@@ -176,18 +197,29 @@ def resolve_crop_and_category(
     type_clean = (crop_type or "").strip().lower()
 
     # Direct category override if provided
-    if type_clean in DEFAULT_RATE_MAP:
+    if type_clean in ("kharif_foodgrain_oilseed", "rabi_foodgrain_oilseed", "commercial_horticultural"):
         resolved_season = season_clean or ("rabi" if "rabi" in type_clean else "kharif")
         return crop_clean or type_clean, resolved_season, type_clean
 
     # Known crop lookup
     if crop_clean in CROP_CATEGORY_MAP:
         default_season, category = CROP_CATEGORY_MAP[crop_clean]
-        resolved_season = season_clean if season_clean in {"kharif", "rabi", "annual", "summer"} else default_season
-        if resolved_season == "rabi" and category == "kharif_foodgrain_oilseed":
-            category = "rabi_foodgrain_oilseed"
-        elif resolved_season == "kharif" and category == "rabi_foodgrain_oilseed":
-            category = "kharif_foodgrain_oilseed"
+        if season_clean:
+            # Validate season/crop consistency against PMFBY classifications
+            if crop_clean in ("wheat", "gram", "mustard", "barley", "chickpea", "chana") and season_clean == "kharif":
+                raise ValueError(
+                    f"Conflicting season/crop: '{crop.title()}' is classified as a Rabi foodgrain crop under PMFBY guidelines. "
+                    "Cannot calculate under Kharif season without official state notification evidence."
+                )
+            if crop_clean in ("soybean", "soya", "paddy", "rice", "cotton", "tur", "groundnut", "maize") and season_clean == "rabi":
+                raise ValueError(
+                    f"Conflicting season/crop: '{crop.title()}' is classified as a Kharif/Annual crop under PMFBY guidelines. "
+                    "Cannot calculate under Rabi season without official state notification evidence."
+                )
+            resolved_season = season_clean
+        else:
+            resolved_season = default_season
+
         return crop_clean, resolved_season, category
 
     # Check for category hints in season or crop_type
@@ -307,7 +339,11 @@ def pmfby_premium(
     # 3. Resolve crop and rate category from records.json
     crop_name, resolved_season, category = resolve_crop_and_category(crop, season, crop_type)
     rate_table = load_rate_table_from_records()
-    category_info = rate_table.get(category, rate_table["kharif_foodgrain_oilseed"])
+    category_info = rate_table.get(category)
+    if not category_info:
+        raise ValueError(
+            f"Statutory rate evidence for category '{category}' could not be verified in official records.json."
+        )
     statutory_cap = category_info["rate_percent"]
 
     # 4. Determine applicable rate and estimate vs exact

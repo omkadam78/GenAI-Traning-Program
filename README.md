@@ -43,24 +43,28 @@ Farmers often face difficulty understanding crop insurance guidelines, premium c
 ![Streamlit UI](docs/images/streamlit_ui.png)
 
 ### Key Features of the Streamlit Interface (`ui/app.py`):
-1. **Chat Interface**: Multi-turn conversational UI calling the stateful `/agent` API or running the LangGraph agent in-process. Displays questions, answers, and disclaimer.
-2. **Signature Feature — 72-Hour Calamity Intimation Clock**:
+1. **Clean Zero-Fabricated State**:
+   - New sessions start with empty chat history, no pre-populated fake approvals, no unrequested clock calculations, and no preset feedback.
+   - Includes an explicit, opt-in `📌 Demo` button for users wishing to inspect sample multi-part scenarios in an isolated session.
+2. **Signature Feature — Live 72-Hour Calamity Intimation Clock**:
    - Implements PMFBY Revamped Guidelines Paras 15.1.2 & 15.2.2 (localized calamities: hailstorm, landslide, inundation, cloudburst, natural fire; and post-harvest losses up to 14 days for cut-and-spread crops).
-   - Timezone-aware calculation in `Asia/Kolkata` (IST) with live countdown of remaining hours.
-   - Lists verified official reporting channels (Crop Insurance App, Krishi Rakshak Helpline 14447, Bank Branch / PACS, Local Agriculture Officer).
+   - Real-time automatic countdown via `@st.fragment(run_every="5s")` without full page reloads, recalculating remaining hours, minutes, and seconds from current `Asia/Kolkata` time against the fixed statutory deadline.
+   - Clearly flags expired deadlines and lists official reporting channels (Crop Insurance App, Krishi Rakshak Helpline 14447, Bank Branch / PACS, Local Agriculture Officer).
    - Prominently displays statutory disclaimer that the clock calculates deadlines and does not file formal insurance claims.
 3. **LangGraph Native Interrupt Approval Card**:
-   - When a financial calculation is requested, the workflow pauses at the approval gate using native `interrupt()`.
-   - Displays an approval card showing the immutable Calculation ID, crop, season, area, and scale of finance.
-   - Includes explicit `✅ Approve & Calculate` and `❌ Cancel Calculation` buttons.
+   - Pauses execution with native LangGraph `interrupt()` when financial calculations are requested.
+   - Binds approvals strictly to immutable parameters and unique calculation IDs (`calc_<uuid>`).
+   - Requires explicit `calculation_id` for approval or cancellation; rejects mismatched or missing IDs while preserving the pending state.
    - Approved calculations resume via `Command(resume=...)` to execute `pmfby_premium`; cancellations halt immediately without executing tools.
 4. **Transparent Tool Traces & Official Citations**:
-   - Collapsible expander reveals exact reasoning steps and tool calls (`pmfby_premium`, `pmfby_claim_deadline_check`, `pmfby_knowledge_search`).
-   - Citations expander displays official source document name, page number, rule title, and semantic relevance score.
+   - Collapsible expanders reveal exact reasoning steps, inputs/outputs of executed tools (`pmfby_premium`, `pmfby_claim_deadline_check`, `pmfby_knowledge_search`), and official PMFBY guideline citations with source document, page number, and semantic relevance.
 5. **Farmer Feedback Collection**:
-   - Thumbs-up (👍) and Thumbs-down (👎) feedback buttons on every assistant response.
-   - Persisted to `data/feedback.jsonl` with automatic deduplication by `(thread_id, query)`.
-   - Accessible via API at `POST /feedback` and `GET /feedback`.
+   - Thumbs-up (👍) and Thumbs-down (👎) feedback buttons keyed to stable assistant `response_id`s.
+   - Thread-safe persistence with deduplication by `(thread_id, response_id)` (repeated votes update rather than duplicate; multiple responses in the same session remain isolated).
+   - Excluded from git tracking (`data/feedback.jsonl` added to `.gitignore`).
+6. **Strict Production Execution Architecture**:
+   - UI communicates with the FastAPI service via HTTP with client `request_id` idempotency.
+   - Displays clear connection and timeout errors rather than silently executing locally on failure.
 
 ---
 
@@ -104,8 +108,8 @@ The evaluation in `eval/run_eval.py` tests 15 scenarios from `eval/eval_set.json
 
 | Configuration | Collection | Chunk Size | Top-K | Retrieval Recall | Answer Accuracy | Refusal Accuracy (Q6 & Q15) | Citation Support | Overall Accuracy | Avg Latency | Result |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Config A (Compact / top-3)** | `fasalbima_chunks_400` | 400 chars | 3 | 76.9% | 76.9% | 100.0% | 100.0% | 80.0% | 845.2 ms | Alternative |
-| **Config B (Broader Context / top-5)** | `fasalbima_chunks_750` | 750 chars | 5 | 92.3% | 92.3% | 100.0% | 100.0% | 93.3% | 712.5 ms | **WINNER** |
+| **Config A (Compact / top-3)** | `fasalbima_chunks_400` | 400 chars | 3 | 69.2% | 53.8% | 100.0% | 100.0% | 60.0% | 789.6 ms | Alternative |
+| **Config B (Broader Context / top-5)** | `fasalbima_chunks_750` | 750 chars | 5 | 84.6% | 69.2% | 100.0% | 100.0% | 73.3% | 788.1 ms | **WINNER** |
 
 **Winner Analysis**: **Config B** provides superior semantic context retention across complex multi-clause PMFBY rules (such as prevented sowing, post-harvest drying windows, and localized calamity timelines) without fragmenting legal clauses across chunk boundaries.
 

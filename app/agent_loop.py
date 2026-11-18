@@ -7,6 +7,7 @@ enforces truthful tool traces, handles missing inputs/errors gracefully, and pre
 from __future__ import annotations
 
 import re
+import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 import zoneinfo
@@ -128,28 +129,39 @@ def extract_premium_params(query: str) -> Dict[str, Any]:
 
 
 def extract_loss_timestamp_text(query: str) -> Optional[str]:
-    """Extract explicit or relative loss timestamp string from query."""
+    """Extract explicit or relative loss timestamp string from query without inventing defaults."""
     q = query.strip()
     low = q.lower()
 
-    # Yesterday patterns
-    y_match = re.search(r"((?:yesterday\s+(?:at\s+)?|at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm)?\s*(?:yesterday)?)", low)
-    if "yesterday" in low:
-        # Check specific forms like "at 9 pm yesterday" or "yesterday at 9 pm"
-        match = re.search(r"((?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm)\s+yesterday|yesterday\s+(?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm)?)", low)
-        if match:
-            return match.group(1).strip()
-        return "yesterday at 9 pm"
+    # Yesterday with explicit time (e.g. "yesterday at 9 pm", "at 9 pm yesterday")
+    y_time = re.search(r"((?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm)\s+yesterday|yesterday\s+(?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm))", low)
+    if y_time:
+        return y_time.group(1).strip()
 
-    # Relative hours ago
+    # Today with explicit time (e.g. "today at 10 am", "at 10 am today")
+    t_time = re.search(r"((?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm)\s+today|today\s+(?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm))", low)
+    if t_time:
+        return t_time.group(1).strip()
+
+    # Relative hours ago (e.g. "12 hours ago", "5 hrs ago")
     hrs_match = re.search(r"\b(\d+(?:\.\d+)?\s*(?:hours?|hrs?)\s+ago)\b", low)
     if hrs_match:
         return hrs_match.group(1)
 
-    # ISO or standard date match (e.g. 2026-11-15 21:00)
-    iso_match = re.search(r"\b(\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?)\b", q)
-    if iso_match:
-        return iso_match.group(1)
+    # Explicit date with time: ISO or standard (e.g. "2026-11-15 21:00", "15-11-2026 09:30")
+    dt_match = re.search(r"\b(\d{4}-\d{2}-\d{2}[ T]\d{1,2}:\d{2}(?::\d{2})?|\d{2}[-/]\d{2}[-/]\d{4}[ T]\d{1,2}:\d{2}(?::\d{2})?)\b", q)
+    if dt_match:
+        return dt_match.group(1)
+
+    # Bare relative terms or bare dates without time -> extract verbatim so validator can request missing time
+    if re.search(r"\byesterday\b", low):
+        return "yesterday"
+    if re.search(r"\btoday\b", low):
+        return "today"
+
+    date_only_match = re.search(r"\b(\d{4}-\d{2}-\d{2}|\d{2}[-/]\d{2}[-/]\d{4})\b", q)
+    if date_only_match:
+        return date_only_match.group(1)
 
     return None
 
@@ -165,6 +177,7 @@ class HandwrittenAgent:
         # Validate empty or whitespace-only query
         if not query or not query.strip():
             return {
+                "response_id": f"resp_{uuid.uuid4().hex[:10]}",
                 "query": query,
                 "answer": "Query cannot be empty. Please enter your crop insurance question.",
                 "steps": [],
@@ -187,6 +200,7 @@ class HandwrittenAgent:
                 "pmfby.gov.in (NCIP), the Crop Insurance App, or Krishi Rakshak Helpline 14447."
             )
             return {
+                "response_id": f"resp_{uuid.uuid4().hex[:10]}",
                 "query": query,
                 "answer": refusal_text,
                 "steps": [
@@ -397,6 +411,10 @@ class HandwrittenAgent:
                 f"- **Reporting Channels:** {channels_str}\n"
                 f"- *Governing Rule:* {deadline_info['og_version']}"
             )
+        elif deadline_error:
+            answer_parts.append(
+                f"**Localized Calamity Intimation (72-Hour Rule):**\n{deadline_error}"
+            )
         elif "inform" in q_lower and "channel" in q_lower:
             answer_parts.append(
                 f"**Intimation Deadline & Reporting Channels:**\n"
@@ -426,6 +444,7 @@ class HandwrittenAgent:
         confidence = 0.95 if calc_result or deadline_info or (search_result and search_result.get("hits")) else 0.5
 
         return {
+            "response_id": f"resp_{uuid.uuid4().hex[:10]}",
             "query": query,
             "answer": final_answer,
             "steps": steps,

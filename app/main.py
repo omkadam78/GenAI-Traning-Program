@@ -16,12 +16,15 @@ from app.vectorstore import query_semantic
 from pathlib import Path
 import json
 import logging
+import threading
 from datetime import datetime
 import zoneinfo
 
 ROOT = Path(__file__).resolve().parents[1]
 FEEDBACK_FILE = ROOT / "data" / "feedback.jsonl"
 IST = zoneinfo.ZoneInfo("Asia/Kolkata")
+_FEEDBACK_LOCK = threading.Lock()
+_IDEMPOTENCY_CACHE: dict[str, dict] = {}
 
 DISCLAIMER = (
     "Information from official PMFBY guidelines, not insurance or legal advice. "
@@ -72,6 +75,7 @@ class AgentRequest(BaseModel):
     thread_id: str | None = Field(default=None, description="Session ID for stateful agent memory")
     approved: bool | None = Field(default=None, description="Approval flag (true to confirm, false to cancel)")
     calculation_id: str | None = Field(default=None, description="Pending calculation ID to bind approval")
+    request_id: str | None = Field(default=None, description="Client request ID for idempotency")
     agent_type: str = Field(
         default="langgraph",
         pattern="^(langgraph|handwritten)$",
@@ -87,6 +91,7 @@ class ClaimClockRequest(BaseModel):
 
 class FeedbackRequest(BaseModel):
     thread_id: str = Field(..., min_length=1, description="Conversation session ID")
+    response_id: str | None = Field(default=None, description="Assistant response ID being rated")
     query: str = Field(..., min_length=1, description="Farmer question")
     rating: str = Field(..., pattern="^(up|down)$", description="Rating: 'up' (thumbs up) or 'down' (thumbs down)")
     comment: str | None = Field(default=None, description="Optional farmer feedback comment")
@@ -233,6 +238,10 @@ def ask(payload: AskRequest):
 @app.post("/agent")
 def agent(payload: AgentRequest):
     """Day 9 endpoint: PMFBY agent with memory and human-in-the-loop approval step."""
+    # 0. Check idempotency cache if request_id is supplied
+    if payload.request_id and payload.request_id in _IDEMPOTENCY_CACHE:
+        return _IDEMPOTENCY_CACHE[payload.request_id]
+
     # 1. Reject empty or whitespace-only queries when approved is not passed
     if payload.query is not None and not payload.query.strip() and payload.approved is None:
         raise HTTPException(status_code=400, detail="Query cannot be empty or whitespace.")
@@ -241,20 +250,28 @@ def agent(payload: AgentRequest):
     if payload.query is None and payload.approved is None:
         raise HTTPException(status_code=400, detail="Either 'query' or 'approved' must be provided.")
 
+    # 3. For approval/resume, require both thread_id AND calculation_id
+    if payload.approved is not None:
+        if not payload.thread_id or not payload.thread_id.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="A valid 'thread_id' is required to resume or cancel a pending calculation.",
+            )
+        if not payload.calculation_id or not payload.calculation_id.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="A valid 'calculation_id' is required to approve or cancel a pending calculation.",
+            )
+
     if payload.agent_type == "handwritten":
         if not payload.query or not payload.query.strip():
             raise HTTPException(status_code=400, detail="query is required for handwritten agent")
         result = run_agent_loop(payload.query, max_iterations=payload.max_iterations)
         result["thread_id"] = payload.thread_id or f"session_{uuid.uuid4().hex[:12]}"
         result["agent_type"] = "handwritten"
+        if payload.request_id:
+            _IDEMPOTENCY_CACHE[payload.request_id] = result
         return result
-
-    # 3. For approval/resume in LangGraph, if query is omitted, thread_id must be provided
-    if payload.query is None and payload.approved is not None and not payload.thread_id:
-        raise HTTPException(
-            status_code=400,
-            detail="A valid 'thread_id' is required to resume or cancel a pending calculation.",
-        )
 
     try:
         result = run_langgraph_agent(
@@ -264,6 +281,8 @@ def agent(payload: AgentRequest):
             calculation_id=payload.calculation_id,
         )
         result["agent_type"] = "langgraph"
+        if payload.request_id:
+            _IDEMPOTENCY_CACHE[payload.request_id] = result
         return result
     except Exception as err:
         raise HTTPException(status_code=500, detail=f"Agent processing error: {err}")
@@ -286,60 +305,74 @@ def check_claim_clock(payload: ClaimClockRequest):
 
 @app.post("/feedback")
 def submit_feedback(payload: FeedbackRequest):
-    """Day 10 endpoint: Collect thumbs up/down user feedback with deduplication."""
+    """Day 10 endpoint: Collect thumbs up/down user feedback with deduplication by response_id."""
     FEEDBACK_FILE.parent.mkdir(parents=True, exist_ok=True)
-    existing_entries = []
-    if FEEDBACK_FILE.exists():
-        with open(FEEDBACK_FILE, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    try:
-                        existing_entries.append(json.loads(line))
-                    except Exception:
-                        pass
+    with _FEEDBACK_LOCK:
+        existing_entries = []
+        if FEEDBACK_FILE.exists():
+            with open(FEEDBACK_FILE, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        try:
+                            existing_entries.append(json.loads(line))
+                        except Exception:
+                            pass
 
-    # Deduplicate by (thread_id, query)
-    updated = False
-    new_entry = {
-        "id": f"fb_{uuid.uuid4().hex[:8]}",
-        "timestamp": datetime.now(tz=IST).isoformat(),
-        "thread_id": payload.thread_id,
-        "query": payload.query,
-        "rating": payload.rating,
-        "comment": payload.comment,
-    }
+        # Deduplicate by (thread_id, response_id) or (thread_id, query) if response_id omitted
+        resp_id = payload.response_id or f"resp_legacy_{uuid.uuid4().hex[:6]}"
+        updated = False
+        new_entry = {
+            "id": f"fb_{uuid.uuid4().hex[:8]}",
+            "timestamp": datetime.now(tz=IST).isoformat(),
+            "thread_id": payload.thread_id,
+            "response_id": resp_id,
+            "query": payload.query,
+            "rating": payload.rating,
+            "comment": payload.comment,
+        }
 
-    for idx, entry in enumerate(existing_entries):
-        if entry.get("thread_id") == payload.thread_id and entry.get("query") == payload.query:
-            existing_entries[idx] = new_entry
-            updated = True
-            break
+        for idx, entry in enumerate(existing_entries):
+            match_found = False
+            if payload.response_id:
+                match_found = (entry.get("thread_id") == payload.thread_id and entry.get("response_id") == payload.response_id)
+            else:
+                match_found = (entry.get("thread_id") == payload.thread_id and entry.get("query") == payload.query)
 
-    if not updated:
-        existing_entries.append(new_entry)
+            if match_found:
+                existing_entries[idx] = new_entry
+                updated = True
+                break
 
-    with open(FEEDBACK_FILE, "w", encoding="utf-8") as f:
-        for entry in existing_entries:
-            f.write(json.dumps(entry) + "\n")
+        if not updated:
+            existing_entries.append(new_entry)
+
+        with open(FEEDBACK_FILE, "w", encoding="utf-8") as f:
+            for entry in existing_entries:
+                f.write(json.dumps(entry) + "\n")
 
     return {"status": "success", "updated": updated, "entry": new_entry}
 
 
 @app.get("/feedback")
-def list_feedback():
-    """Retrieve all collected feedback records."""
+def list_feedback(thread_id: str | None = Query(default=None, description="Optional session ID to filter feedback")):
+    """Retrieve collected feedback records, optionally filtered by session thread_id."""
     if not FEEDBACK_FILE.exists():
         return {"count": 0, "feedback": []}
 
-    entries = []
-    with open(FEEDBACK_FILE, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                try:
-                    entries.append(json.loads(line))
-                except Exception:
-                    pass
+    with _FEEDBACK_LOCK:
+        entries = []
+        with open(FEEDBACK_FILE, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    try:
+                        entries.append(json.loads(line))
+                    except Exception:
+                        pass
+
+    if thread_id:
+        entries = [e for e in entries if e.get("thread_id") == thread_id]
+
     return {"count": len(entries), "feedback": entries}
 

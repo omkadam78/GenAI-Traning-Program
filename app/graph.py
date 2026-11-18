@@ -51,6 +51,7 @@ class AgentState(TypedDict, total=False):
     pending_calculation: Optional[Dict[str, Any]]
     requires_approval: bool
     compound_deadline: Optional[Dict[str, Any]]
+    deadline_clarification: Optional[str]
     tool_calls: List[Dict[str, Any]]
     steps: List[str]
     citations: List[Dict[str, Any]]
@@ -79,6 +80,7 @@ def classify_node(state: AgentState) -> Dict[str, Any]:
             "requires_approval": False,
             "pending_calculation": None,
             "compound_deadline": None,
+            "deadline_clarification": None,
             "steps": steps,
             "tool_calls": [],
             "citations": [],
@@ -87,6 +89,7 @@ def classify_node(state: AgentState) -> Dict[str, Any]:
     # Check for deadline / calamity intimation in compound or standalone queries
     loss_ts_text = extract_loss_timestamp_text(query)
     compound_deadline: Optional[Dict[str, Any]] = None
+    deadline_clarification: Optional[str] = None
     if loss_ts_text and any(t in q_low for t in ("hailstorm", "loss", "calamity", "inundation", "landslide", "inform", "deadline", "hours")):
         try:
             deadline_res = pmfby_claim_deadline_check(loss_timestamp=loss_ts_text, window_hours=72)
@@ -100,6 +103,9 @@ def classify_node(state: AgentState) -> Dict[str, Any]:
                 f"remaining: {deadline_res['remaining_hours']}h"
             )
             compound_deadline = deadline_res
+        except ValueError as err:
+            deadline_clarification = str(err)
+            steps.append(f"Deadline clarification required: {err}")
         except Exception as err:
             steps.append(f"Deadline check skipped: {err}")
 
@@ -120,9 +126,15 @@ def classify_node(state: AgentState) -> Dict[str, Any]:
             if compound_deadline:
                 clarification_msg = (
                     f"**Localized Calamity Intimation (72-Hour Rule):**\n"
+                    f"- **Statutory Window:** Must be intimated within **72 hours** of loss occurrence.\n"
                     f"- **Intimation Deadline:** {compound_deadline['deadline_timestamp']} "
                     f"({compound_deadline['remaining_hours']} hours remaining)\n"
                     f"- **Reporting Channels:** {', '.join(compound_deadline['reporting_channels'])}\n\n"
+                    f"{clarification_msg}"
+                )
+            elif deadline_clarification:
+                clarification_msg = (
+                    f"**Localized Calamity Intimation (72-Hour Rule):**\n{deadline_clarification}\n\n"
                     f"{clarification_msg}"
                 )
             return {
@@ -131,6 +143,7 @@ def classify_node(state: AgentState) -> Dict[str, Any]:
                 "requires_approval": False,
                 "pending_calculation": None,
                 "compound_deadline": compound_deadline,
+                "deadline_clarification": deadline_clarification,
                 "status": "clarification_needed",
                 "answer": clarification_msg,
                 "confidence": 0.5,
@@ -158,6 +171,7 @@ def classify_node(state: AgentState) -> Dict[str, Any]:
             "intent": "premium_calc",
             "pending_calculation": new_pending,
             "compound_deadline": compound_deadline,
+            "deadline_clarification": deadline_clarification,
             "requires_approval": True,
             "steps": steps,
             "tool_calls": tool_calls,
@@ -171,6 +185,7 @@ def classify_node(state: AgentState) -> Dict[str, Any]:
         "intent": "knowledge_search",
         "pending_calculation": None,  # Ensure fresh knowledge queries never inherit old calc params
         "compound_deadline": compound_deadline,
+        "deadline_clarification": deadline_clarification,
         "requires_approval": False,
         "steps": steps,
         "tool_calls": tool_calls,
@@ -240,6 +255,11 @@ def approval_gate_node(state: AgentState) -> Dict[str, Any]:
             f"- **Intimation Deadline:** **{compound_deadline['deadline_timestamp']}** ({compound_deadline['remaining_hours']}h remaining)\n"
             f"- **Reporting Channels:** {', '.join(compound_deadline['reporting_channels'])}\n"
             f"- *Governing Rule:* {compound_deadline['og_version']}\n"
+        )
+    elif state.get("deadline_clarification"):
+        prompt_parts.append(
+            f"**Localized Calamity Intimation (72-Hour Rule):**\n"
+            f"{state.get('deadline_clarification')}\n"
         )
 
     prompt_parts.append(
@@ -389,10 +409,16 @@ def search_node(state: AgentState) -> Dict[str, Any]:
         if compound_deadline:
             answer_parts.append(
                 f"**Localized Calamity Intimation (72-Hour Rule):**\n"
+                f"- **Statutory Window:** Must be intimated within **72 hours** of loss occurrence.\n"
                 f"- **Loss Event:** {compound_deadline['loss_timestamp']}\n"
                 f"- **Intimation Deadline:** **{compound_deadline['deadline_timestamp']}** ({compound_deadline['remaining_hours']}h remaining)\n"
                 f"- **Reporting Channels:** {', '.join(compound_deadline['reporting_channels'])}\n"
                 f"- *Governing Rule:* {compound_deadline['og_version']}"
+            )
+        elif state.get("deadline_clarification"):
+            answer_parts.append(
+                f"**Localized Calamity Intimation (72-Hour Rule):**\n"
+                f"{state.get('deadline_clarification')}"
             )
 
         if search_res.get("hits"):
@@ -476,29 +502,77 @@ def run_langgraph_agent(
     # Case 1: Resuming an interrupted calculation with approval (approved is True or False)
     if approved is not None:
         state_snapshot = pmfby_agent_graph.get_state(config)
-        has_interrupt = any(len(t.interrupts) > 0 for t in state_snapshot.tasks)
+        interrupt_tasks = [t for t in state_snapshot.tasks if len(t.interrupts) > 0]
 
-        if not has_interrupt:
+        if not interrupt_tasks:
             return {
+                "response_id": f"resp_{uuid.uuid4().hex[:10]}",
                 "query": query or "",
                 "thread_id": active_thread,
-                "answer": "No pending calculation found to approve on this session. Please submit your crop, area, and scale of finance first.",
+                "answer": "No pending calculation found to approve or cancel on this session. Please submit your crop, area, and scale of finance first.",
                 "status": "rejected",
                 "requires_approval": False,
                 "intent": "approval_rejected",
                 "tool_calls": [],
-                "steps": ["Received approval without an active pending calculation -> Route to rejection"],
+                "steps": ["Received approval/cancellation without an active pending calculation -> Route to rejection"],
                 "citations": [],
                 "confidence": 0.0,
                 "disclaimer": DISCLAIMER,
             }
 
-        resume_payload = {"approved": approved}
-        if calculation_id:
-            resume_payload["calculation_id"] = calculation_id
+        # Active interrupt exists: extract bound calculation ID and immutable parameters
+        active_interrupt = interrupt_tasks[0].interrupts[0]
+        active_val = active_interrupt.value if hasattr(active_interrupt, "value") else {}
+        expected_calc_id = active_val.get("calculation_id")
+        expected_params = active_val.get("params", {})
 
+        # Requirement 4: Require calculation_id for every approval or cancellation
+        if not calculation_id or not str(calculation_id).strip():
+            return {
+                "response_id": f"resp_{uuid.uuid4().hex[:10]}",
+                "query": query or "",
+                "thread_id": active_thread,
+                "answer": (
+                    f"A valid 'calculation_id' is required to approve or cancel. "
+                    f"The pending calculation `{expected_calc_id}` remains active."
+                ),
+                "status": "rejected",
+                "requires_approval": True,
+                "pending_calculation": {"id": expected_calc_id, "params": expected_params},
+                "intent": "approval_rejected",
+                "tool_calls": [],
+                "steps": ["Missing calculation_id -> Preserved pending calculation and rejected approval request"],
+                "citations": [],
+                "confidence": 0.0,
+                "disclaimer": DISCLAIMER,
+            }
+
+        # Requirement 4: Reject mismatched or stale calculation IDs WITHOUT consuming the pending interrupt
+        if calculation_id.strip() != expected_calc_id:
+            return {
+                "response_id": f"resp_{uuid.uuid4().hex[:10]}",
+                "query": query or "",
+                "thread_id": active_thread,
+                "answer": (
+                    f"Calculation ID mismatch: received '{calculation_id}', but pending calculation is '{expected_calc_id}'. "
+                    f"The pending calculation `{expected_calc_id}` remains active."
+                ),
+                "status": "rejected",
+                "requires_approval": True,
+                "pending_calculation": {"id": expected_calc_id, "params": expected_params},
+                "intent": "approval_rejected",
+                "tool_calls": [],
+                "steps": [f"Mismatched calculation_id ('{calculation_id}' != '{expected_calc_id}') -> Preserved pending calculation and rejected"],
+                "citations": [],
+                "confidence": 0.0,
+                "disclaimer": DISCLAIMER,
+            }
+
+        # Valid ID: Now resume LangGraph interrupt via Command(resume=...)
+        resume_payload = {"approved": approved, "calculation_id": expected_calc_id}
         result = pmfby_agent_graph.invoke(Command(resume=resume_payload), config=config)
         return {
+            "response_id": f"resp_{uuid.uuid4().hex[:10]}",
             "query": query or result.get("query", ""),
             "thread_id": active_thread,
             "answer": result.get("answer", ""),
@@ -520,6 +594,7 @@ def run_langgraph_agent(
     if "__interrupt__" in result and result["__interrupt__"]:
         interrupt_val = result["__interrupt__"][0].value
         return {
+            "response_id": f"resp_{uuid.uuid4().hex[:10]}",
             "query": query or "",
             "thread_id": active_thread,
             "answer": interrupt_val.get("message", "Approval required for calculation."),
@@ -535,6 +610,7 @@ def run_langgraph_agent(
         }
 
     return {
+        "response_id": f"resp_{uuid.uuid4().hex[:10]}",
         "query": query or result.get("query", ""),
         "thread_id": active_thread,
         "answer": result.get("answer", ""),

@@ -1,164 +1,252 @@
 [
   {
     "name": "Config A (Compact / top-3)",
+    "collection_name": "fasalbima_chunks_400",
     "chunk_size": 400,
     "top_k": 3,
     "total_chunks": 2217,
-    "hit_rate_pct": 69.2,
+    "retrieval_recall_pct": 69.2,
+    "answer_accuracy_pct": 53.8,
     "refusal_rate_pct": 100.0,
-    "overall_accuracy_pct": 73.3,
-    "avg_latency_ms": 857.4,
+    "citation_support_pct": 100.0,
+    "overall_accuracy_pct": 60.0,
+    "avg_latency_ms": 789.6,
     "item_results": [
       {
         "id": "Q1",
         "type": "answerable",
-        "matched_keywords": [
+        "retrieval_matched": [
           "2.0%",
           "oilseed",
           "kharif",
           "sum insured"
         ],
-        "passed": true,
-        "latency_ms": 3006.2
+        "answer_matched": [
+          "kharif",
+          "sum insured"
+        ],
+        "retrieval_passed": true,
+        "answer_passed": true,
+        "citation_passed": true,
+        "latency_ms": 1513.7
       },
       {
         "id": "Q2",
         "type": "answerable",
-        "matched_keywords": [
+        "retrieval_matched": [
+          "hailstorm",
+          "localized",
+          "individual",
+          "farm"
+        ],
+        "answer_matched": [
           "hailstorm",
           "localized",
           "individual",
           "farm",
           "72 hours"
         ],
-        "passed": true,
-        "latency_ms": 744.9
+        "retrieval_passed": true,
+        "answer_passed": true,
+        "citation_passed": true,
+        "latency_ms": 974.5
       },
       {
         "id": "Q3",
         "type": "answerable",
-        "matched_keywords": [
+        "retrieval_matched": [
           "14 days",
           "two weeks",
           "post-harvest",
           "cut and spread",
           "drying"
         ],
-        "passed": true,
-        "latency_ms": 749.6
+        "answer_matched": [
+          "14 days",
+          "two weeks",
+          "post-harvest",
+          "cut and spread",
+          "drying"
+        ],
+        "retrieval_passed": true,
+        "answer_passed": true,
+        "citation_passed": true,
+        "latency_ms": 976.6
       },
       {
         "id": "Q4",
         "type": "answerable",
-        "matched_keywords": [
+        "retrieval_matched": [],
+        "answer_matched": [
           "72 hours",
           "crop insurance app",
           "14447"
         ],
-        "passed": true,
-        "latency_ms": 790.7
+        "retrieval_passed": false,
+        "answer_passed": false,
+        "citation_passed": true,
+        "latency_ms": 917.5
       },
       {
         "id": "Q5",
         "type": "answerable",
-        "matched_keywords": [
+        "retrieval_matched": [
           "48 hours",
           "72 hours",
           "2016",
           "revamped",
           "farmer"
         ],
-        "passed": true,
-        "latency_ms": 852.2
+        "answer_matched": [
+          "48 hours",
+          "72 hours",
+          "2016",
+          "revamped",
+          "farmer"
+        ],
+        "retrieval_passed": true,
+        "answer_passed": true,
+        "citation_passed": true,
+        "latency_ms": 778.3
       },
       {
         "id": "Q6",
         "type": "unanswerable",
         "passed": true,
-        "latency_ms": 0.0
+        "latency_ms": 0.1
       },
       {
         "id": "Q7",
         "type": "answerable",
-        "matched_keywords": [],
-        "passed": false,
-        "latency_ms": 755.5
+        "retrieval_matched": [],
+        "answer_matched": [
+          "kharif 2020"
+        ],
+        "retrieval_passed": false,
+        "answer_passed": false,
+        "citation_passed": true,
+        "latency_ms": 800.3
       },
       {
         "id": "Q8",
         "type": "answerable",
-        "matched_keywords": [
+        "retrieval_matched": [
           "prevented sowing",
           "75%"
         ],
-        "passed": true,
-        "latency_ms": 844.5
+        "answer_matched": [
+          "75%"
+        ],
+        "retrieval_passed": true,
+        "answer_passed": false,
+        "citation_passed": true,
+        "latency_ms": 829.8
       },
       {
         "id": "Q9",
         "type": "answerable",
-        "matched_keywords": [
+        "retrieval_matched": [
           "exclusions",
           "war",
           "nuclear",
           "malicious",
           "preventable"
         ],
-        "passed": true,
-        "latency_ms": 889.5
+        "answer_matched": [
+          "exclusions",
+          "war",
+          "nuclear",
+          "malicious",
+          "preventable"
+        ],
+        "retrieval_passed": true,
+        "answer_passed": true,
+        "citation_passed": true,
+        "latency_ms": 957.0
       },
       {
         "id": "Q10",
         "type": "answerable",
-        "matched_keywords": [
+        "retrieval_matched": [
           "grievance",
           "state"
         ],
-        "passed": false,
-        "latency_ms": 954.7
+        "answer_matched": [
+          "grievance"
+        ],
+        "retrieval_passed": false,
+        "answer_passed": false,
+        "citation_passed": true,
+        "latency_ms": 750.6
       },
       {
         "id": "Q11",
         "type": "answerable",
-        "matched_keywords": [
+        "retrieval_matched": [
           "mid-season",
           "50%",
           "25%",
-          "on-account",
-          "normal yield"
+          "on-account"
         ],
-        "passed": true,
-        "latency_ms": 918.9
+        "answer_matched": [
+          "mid-season",
+          "50%",
+          "25%",
+          "on-account"
+        ],
+        "retrieval_passed": true,
+        "answer_passed": true,
+        "citation_passed": true,
+        "latency_ms": 753.3
       },
       {
         "id": "Q12",
         "type": "answerable",
-        "matched_keywords": [
+        "retrieval_matched": [
+          "bank",
+          "insurance company"
+        ],
+        "answer_matched": [
           "bank"
         ],
-        "passed": false,
-        "latency_ms": 769.0
+        "retrieval_passed": true,
+        "answer_passed": false,
+        "citation_passed": true,
+        "latency_ms": 917.3
       },
       {
         "id": "Q13",
         "type": "answerable",
-        "matched_keywords": [
+        "retrieval_matched": [
           "5%",
           "commercial",
           "horticultural",
           "actuarial"
         ],
-        "passed": true,
-        "latency_ms": 796.0
+        "answer_matched": [
+          "5%",
+          "commercial",
+          "horticultural",
+          "actuarial"
+        ],
+        "retrieval_passed": true,
+        "answer_passed": true,
+        "citation_passed": true,
+        "latency_ms": 779.2
       },
       {
         "id": "Q14",
         "type": "answerable",
-        "matched_keywords": [
+        "retrieval_matched": [
           "scale of finance"
         ],
-        "passed": false,
-        "latency_ms": 789.2
+        "answer_matched": [
+          "scale of finance"
+        ],
+        "retrieval_passed": false,
+        "answer_passed": false,
+        "citation_passed": true,
+        "latency_ms": 895.6
       },
       {
         "id": "Q15",
@@ -170,75 +258,110 @@
   },
   {
     "name": "Config B (Broader Context / top-5)",
+    "collection_name": "fasalbima_chunks_750",
     "chunk_size": 750,
     "top_k": 5,
     "total_chunks": 1206,
-    "hit_rate_pct": 92.3,
+    "retrieval_recall_pct": 84.6,
+    "answer_accuracy_pct": 69.2,
     "refusal_rate_pct": 100.0,
-    "overall_accuracy_pct": 93.3,
-    "avg_latency_ms": 719.9,
+    "citation_support_pct": 100.0,
+    "overall_accuracy_pct": 73.3,
+    "avg_latency_ms": 788.1,
     "item_results": [
       {
         "id": "Q1",
         "type": "answerable",
-        "matched_keywords": [
+        "retrieval_matched": [
           "2.0%",
           "oilseed",
           "kharif",
           "sum insured"
         ],
-        "passed": true,
-        "latency_ms": 990.2
+        "answer_matched": [],
+        "retrieval_passed": true,
+        "answer_passed": false,
+        "citation_passed": true,
+        "latency_ms": 994.3
       },
       {
         "id": "Q2",
         "type": "answerable",
-        "matched_keywords": [
+        "retrieval_matched": [
+          "hailstorm",
+          "localized",
+          "individual",
+          "farm"
+        ],
+        "answer_matched": [
           "hailstorm",
           "localized",
           "individual",
           "farm",
           "72 hours"
         ],
-        "passed": true,
-        "latency_ms": 843.4
+        "retrieval_passed": true,
+        "answer_passed": true,
+        "citation_passed": true,
+        "latency_ms": 1088.4
       },
       {
         "id": "Q3",
         "type": "answerable",
-        "matched_keywords": [
+        "retrieval_matched": [
           "14 days",
           "two weeks",
           "post-harvest",
           "cut and spread",
           "drying"
         ],
-        "passed": true,
-        "latency_ms": 759.0
+        "answer_matched": [
+          "14 days",
+          "two weeks",
+          "post-harvest",
+          "cut and spread",
+          "drying"
+        ],
+        "retrieval_passed": true,
+        "answer_passed": true,
+        "citation_passed": true,
+        "latency_ms": 1004.0
       },
       {
         "id": "Q4",
         "type": "answerable",
-        "matched_keywords": [
+        "retrieval_matched": [],
+        "answer_matched": [
           "72 hours",
           "crop insurance app",
           "14447"
         ],
-        "passed": true,
-        "latency_ms": 947.4
+        "retrieval_passed": false,
+        "answer_passed": false,
+        "citation_passed": true,
+        "latency_ms": 899.1
       },
       {
         "id": "Q5",
         "type": "answerable",
-        "matched_keywords": [
+        "retrieval_matched": [
           "48 hours",
           "72 hours",
           "2016",
           "revamped",
           "farmer"
         ],
-        "passed": true,
-        "latency_ms": 840.6
+        "answer_matched": [
+          "48 hours",
+          "72 hours",
+          "2016",
+          "revamped",
+          "farmer"
+        ],
+        "retrieval_passed": true,
+        "answer_passed": true,
+        "citation_passed": true,
+        "latency_ms": 924.4
       },
       {
         "id": "Q6",
@@ -249,92 +372,145 @@
       {
         "id": "Q7",
         "type": "answerable",
-        "matched_keywords": [
-          "optional",
-          "kharif 2020"
-        ],
-        "passed": true,
-        "latency_ms": 875.1
+        "retrieval_matched": [],
+        "answer_matched": [],
+        "retrieval_passed": false,
+        "answer_passed": false,
+        "citation_passed": true,
+        "latency_ms": 729.6
       },
       {
         "id": "Q8",
         "type": "answerable",
-        "matched_keywords": [
+        "retrieval_matched": [
           "prevented sowing",
           "75%"
         ],
-        "passed": true,
-        "latency_ms": 782.6
+        "answer_matched": [
+          "prevented sowing",
+          "75%"
+        ],
+        "retrieval_passed": true,
+        "answer_passed": true,
+        "citation_passed": true,
+        "latency_ms": 801.3
       },
       {
         "id": "Q9",
         "type": "answerable",
-        "matched_keywords": [
+        "retrieval_matched": [
           "exclusions",
           "war",
           "nuclear",
           "malicious",
           "preventable"
         ],
-        "passed": true,
-        "latency_ms": 760.7
+        "answer_matched": [
+          "exclusions",
+          "war",
+          "nuclear",
+          "malicious",
+          "preventable"
+        ],
+        "retrieval_passed": true,
+        "answer_passed": true,
+        "citation_passed": true,
+        "latency_ms": 943.6
       },
       {
         "id": "Q10",
         "type": "answerable",
-        "matched_keywords": [
+        "retrieval_matched": [
           "sgrc",
           "grievance",
+          "committee",
           "state"
         ],
-        "passed": true,
-        "latency_ms": 753.8
+        "answer_matched": [
+          "sgrc",
+          "grievance",
+          "committee"
+        ],
+        "retrieval_passed": true,
+        "answer_passed": true,
+        "citation_passed": true,
+        "latency_ms": 913.1
       },
       {
         "id": "Q11",
         "type": "answerable",
-        "matched_keywords": [
+        "retrieval_matched": [
           "mid-season",
           "50%",
           "25%",
           "on-account",
           "normal yield"
         ],
-        "passed": true,
-        "latency_ms": 788.0
+        "answer_matched": [
+          "mid-season",
+          "50%",
+          "25%",
+          "on-account"
+        ],
+        "retrieval_passed": true,
+        "answer_passed": true,
+        "citation_passed": true,
+        "latency_ms": 928.6
       },
       {
         "id": "Q12",
         "type": "answerable",
-        "matched_keywords": [
+        "retrieval_matched": [
           "48 hours",
           "bank",
           "forward",
           "insurance company"
         ],
-        "passed": true,
-        "latency_ms": 809.4
+        "answer_matched": [
+          "48 hours",
+          "bank",
+          "forward",
+          "insurance company"
+        ],
+        "retrieval_passed": true,
+        "answer_passed": true,
+        "citation_passed": true,
+        "latency_ms": 813.9
       },
       {
         "id": "Q13",
         "type": "answerable",
-        "matched_keywords": [
+        "retrieval_matched": [
           "5%",
           "commercial",
           "horticultural",
           "actuarial"
         ],
-        "passed": true,
-        "latency_ms": 830.8
+        "answer_matched": [
+          "5%",
+          "commercial",
+          "horticultural",
+          "actuarial"
+        ],
+        "retrieval_passed": true,
+        "answer_passed": true,
+        "citation_passed": true,
+        "latency_ms": 884.3
       },
       {
         "id": "Q14",
         "type": "answerable",
-        "matched_keywords": [
+        "retrieval_matched": [
+          "scale of finance",
+          "dltc"
+        ],
+        "answer_matched": [
           "scale of finance"
         ],
-        "passed": false,
-        "latency_ms": 817.6
+        "retrieval_passed": true,
+        "answer_passed": false,
+        "citation_passed": true,
+        "latency_ms": 897.2
       },
       {
         "id": "Q15",

@@ -6,3 +6,5 @@ __pycache__/
 data/raw/revamped_guidelines_2020.pdf
 data/chroma_db/
 data/chunks/
+data/feedback.jsonl
+data/feedback*.jsonl

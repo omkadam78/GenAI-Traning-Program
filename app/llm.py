@@ -145,6 +145,25 @@ def _offline_fallback(question: str, matches: list[dict], prompt_version: str) -
         follow_up = "Do you need the exact reporting channels or DLJC dispute resolution steps for your district?"
         confidence = 0.98
 
+    # Arithmetic calculation grounding if query requests financial parameters
+    q_low = question.lower()
+    area_m = re.search(r"(\d+(?:\.\d+)?)\s*(?:ha|hectares?)", q_low)
+    sof_m = re.search(r"(?:rs\.?|inr|₹)?\s*(\d{1,3}(?:,\d{3})*|\d{4,6})\s*(?:per\s+ha|/ha|sof)?", q_low)
+    if area_m and sof_m and ("premium" in q_low or "sum insured" in q_low or "scale of finance" in q_low or "hailstorm" in q_low):
+        try:
+            from app.tools import pmfby_premium
+            area_val = float(area_m.group(1))
+            sof_val = float(sof_m.group(1).replace(",", ""))
+            crop_name = "soybean" if "soybean" in q_low else ("wheat" if "wheat" in q_low else None)
+            calc_res = pmfby_premium(scale_of_finance=sof_val, area=area_val, crop=crop_name)
+            answer += (
+                f"\n\n**Financial Assessment**:\n"
+                f"- **Sum Insured**: ₹{calc_res['sum_insured']:,.2f} ({area_val} ha × ₹{sof_val:,.2f}/ha)\n"
+                f"- **Statutory Farmer Premium Share**: ₹{calc_res['farmer_premium']:,.2f} ({calc_res['farmer_rate_percent']}% rate)"
+            )
+        except Exception:
+            pass
+
     return {
         "answer": answer,
         "confidence": confidence,

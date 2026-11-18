@@ -142,3 +142,4 @@ def test_feedback_submission_and_deduplication():
     matching = [e for e in fb_list if e.get("thread_id") == thread_id and e.get("query") == query]
     assert len(matching) == 1
     assert matching[0]["rating"] == "down"
+

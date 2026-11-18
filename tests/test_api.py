@@ -314,8 +314,9 @@ def test_day9_langgraph_memory_and_approval_step():
     assert t1["requires_approval"] is True
     assert "Approval Required" in t1["answer"]
 
-    # Turn 2: Resume with approved=True on same thread -> completes calculation from memory
-    t2 = run_langgraph_agent(thread_id=thread_id, approved=True)
+    # Turn 2: Resume with approved=True and valid calculation_id on same thread
+    calc_id = t1["pending_calculation"]["id"]
+    t2 = run_langgraph_agent(thread_id=thread_id, approved=True, calculation_id=calc_id)
     assert t2["status"] == "completed"
     assert t2["requires_approval"] is False
     assert "1,176" in t2["answer"] or "1176" in t2["answer"]
@@ -362,12 +363,14 @@ def test_day9_api_agent_endpoint():
     assert lg1_body["status"] == "approval_required"
     assert lg1_body["requires_approval"] is True
 
-    # 3. LangGraph agent via API: Turn 2 approved=True resumes from memory
+    # 3. LangGraph agent via API: Turn 2 approved=True resumes from memory with calculation_id
+    calc_id = lg1_body["pending_calculation"]["id"]
     res_lg2 = client.post(
         "/agent",
         json={
             "thread_id": thread_id,
             "approved": True,
+            "calculation_id": calc_id,
             "agent_type": "langgraph",
         },
     )

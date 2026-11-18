@@ -10,14 +10,18 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
+import sys
 import time
 from typing import Any
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from app.chunking import get_all_chunks
 from app.rag import ask_rag
 from app.vectorstore import index_chunks
 
-ROOT = Path(__file__).resolve().parents[1]
 EVAL_SET_PATH = ROOT / "eval" / "eval_set.json"
 RESULTS_DIR = ROOT / "eval"
 
@@ -113,9 +117,14 @@ def evaluate_config(config: dict[str, Any], eval_items: list[dict]) -> dict[str,
 
             # Check answer correctness in generated answer text
             matched_answer = [kw for kw in exp_kw if kw in answer]
-            # For compound question Q4, require essential components: 72 hours, channels, premium
+            # For compound question Q4, require essential components: 72 hours, channels, sum insured (58,800), and premium (1,176)
             if qid == "Q4":
-                ans_hit = any(h in answer for h in ("72", "72 hours", "72h")) and any(c in answer for c in ("app", "14447", "helpline", "bank"))
+                ans_hit = (
+                    any(h in answer for h in ("72", "72 hours", "72h"))
+                    and any(c in answer for c in ("app", "14447", "helpline", "bank"))
+                    and any(s in answer for s in ("58,800", "58800"))
+                    and any(p in answer for p in ("1,176", "1176"))
+                )
             else:
                 ans_hit = len(matched_answer) >= max(1, len(exp_kw) // 2)
 

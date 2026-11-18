@@ -197,13 +197,14 @@ def test_langgraph_agent_approval_and_memory():
     assert "Approval Required" in turn1["answer"]
 
     # Step 2: User confirms approval (approved=True) on same session -> Executes and completes
-    turn2 = run_langgraph_agent(thread_id=sess_id, approved=True)
+    calc_id1 = turn1["pending_calculation"]["id"]
+    turn2 = run_langgraph_agent(thread_id=sess_id, approved=True, calculation_id=calc_id1)
     assert turn2["status"] == "completed"
     assert turn2["requires_approval"] is False
     assert "1,176.00" in turn2["answer"]
 
     # Step 3: Replay protection: Attempting to approve again on completed session -> Rejected
-    turn3 = run_langgraph_agent(thread_id=sess_id, approved=True)
+    turn3 = run_langgraph_agent(thread_id=sess_id, approved=True, calculation_id=calc_id1)
     assert turn3["status"] == "rejected"
     assert "No pending calculation" in turn3["answer"]
 
@@ -212,9 +213,10 @@ def test_langgraph_agent_approval_and_memory():
     turn4 = run_langgraph_agent(query=q_calc2, thread_id=sess_id)
     assert turn4["status"] == "approval_required"
     assert turn4["requires_approval"] is True
+    calc_id2 = turn4["pending_calculation"]["id"]
 
     # Step 5: User cancels calculation (approved=False) -> Cancelled without executing tools
-    turn5 = run_langgraph_agent(thread_id=sess_id, approved=False)
+    turn5 = run_langgraph_agent(thread_id=sess_id, approved=False, calculation_id=calc_id2)
     assert turn5["status"] == "cancelled"
     assert turn5["requires_approval"] is False
     assert turn5["tool_calls"] == []
@@ -247,13 +249,15 @@ def test_conversation_isolation():
     )
     assert res_a1["status"] == "approval_required"
 
+    calc_a_id = res_a1["pending_calculation"]["id"]
+
     # Attempt to approve on session Beta -> Must be rejected (no pending calculation on Beta)
-    res_b1 = run_langgraph_agent(thread_id=session_beta, approved=True)
+    res_b1 = run_langgraph_agent(thread_id=session_beta, approved=True, calculation_id=calc_a_id)
     assert res_b1["status"] == "rejected"
     assert "No pending calculation" in res_b1["answer"]
 
     # Session Alpha can still be approved independently
-    res_a2 = run_langgraph_agent(thread_id=session_alpha, approved=True)
+    res_a2 = run_langgraph_agent(thread_id=session_alpha, approved=True, calculation_id=calc_a_id)
     assert res_a2["status"] == "completed"
     assert "1,176.00" in res_a2["answer"]
 
@@ -293,11 +297,13 @@ def test_api_agent_endpoint_validations_and_flow():
     assert b1["status"] == "approval_required"
     assert b1["requires_approval"] is True
 
+    calc_id = b1["pending_calculation"]["id"]
     r_turn2 = client.post(
         "/agent",
         json={
             "thread_id": api_thread,
             "approved": True,
+            "calculation_id": calc_id,
             "agent_type": "langgraph",
         },
     )
