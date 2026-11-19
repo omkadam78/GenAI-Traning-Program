@@ -1,0 +1,17 @@
+.git
+.venv
+venv
+__pycache__
+**/__pycache__
+.pytest_cache
+.ruff_cache
+.env
+.env.*
+!.env.example
+data/chroma_db
+data/chunks
+data/runtime
+data/feedback*.jsonl
+data/raw/revamped_guidelines_2020.pdf
+*.log
+work

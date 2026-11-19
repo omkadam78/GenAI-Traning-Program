@@ -4,16 +4,15 @@ A pure Python agent loop that reasons over farmer questions,
 dispatches to agent tools (pmfby_premium, pmfby_knowledge_search, pmfby_claim_deadline_check),
 enforces truthful tool traces, handles missing inputs/errors gracefully, and preserves strict refusals.
 """
+
 from __future__ import annotations
 
 import re
 import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-import zoneinfo
 
 from app.tools import (
-    AVAILABLE_TOOLS,
     IST,
     pmfby_claim_deadline_check,
     pmfby_knowledge_search,
@@ -37,11 +36,38 @@ OUT_OF_SCOPE_PATTERNS = (
 )
 
 KNOWN_CROPS = [
-    "soybean", "soya", "wheat", "cotton", "rice", "paddy", "maize", "corn",
-    "gram", "chickpea", "chana", "sugarcane", "onion", "potato", "tomato",
-    "mustard", "jowar", "sorghum", "bajra", "pearl millet", "tur", "arhar",
-    "pigeon pea", "groundnut", "peanut", "sunflower", "sesamum", "barley",
-    "chilli", "banana", "turmeric", "pomegranate"
+    "soybean",
+    "soya",
+    "wheat",
+    "cotton",
+    "rice",
+    "paddy",
+    "maize",
+    "corn",
+    "gram",
+    "chickpea",
+    "chana",
+    "sugarcane",
+    "onion",
+    "potato",
+    "tomato",
+    "mustard",
+    "jowar",
+    "sorghum",
+    "bajra",
+    "pearl millet",
+    "tur",
+    "arhar",
+    "pigeon pea",
+    "groundnut",
+    "peanut",
+    "sunflower",
+    "sesamum",
+    "barley",
+    "chilli",
+    "banana",
+    "turmeric",
+    "pomegranate",
 ]
 
 
@@ -135,12 +161,18 @@ def extract_loss_timestamp_text(query: str) -> Optional[str]:
     low = q.lower()
 
     # Yesterday with explicit time (e.g. "yesterday at 9 pm", "at 9 pm yesterday")
-    y_time = re.search(r"((?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm)\s+yesterday|yesterday\s+(?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm))", low)
+    y_time = re.search(
+        r"((?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm)\s+yesterday|yesterday\s+(?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm))",
+        low,
+    )
     if y_time:
         return y_time.group(1).strip()
 
     # Today with explicit time (e.g. "today at 10 am", "at 10 am today")
-    t_time = re.search(r"((?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm)\s+today|today\s+(?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm))", low)
+    t_time = re.search(
+        r"((?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm)\s+today|today\s+(?:at\s+)?\d{1,2}(?::\d{2})?\s*(?:am|pm))",
+        low,
+    )
     if t_time:
         return t_time.group(1).strip()
 
@@ -150,7 +182,10 @@ def extract_loss_timestamp_text(query: str) -> Optional[str]:
         return hrs_match.group(1)
 
     # Explicit date with time: ISO or standard (e.g. "2026-11-15 21:00", "15-11-2026 09:30")
-    dt_match = re.search(r"\b(\d{4}-\d{2}-\d{2}[ T]\d{1,2}:\d{2}(?::\d{2})?|\d{2}[-/]\d{2}[-/]\d{4}[ T]\d{1,2}:\d{2}(?::\d{2})?)\b", q)
+    dt_match = re.search(
+        r"\b(\d{4}-\d{2}-\d{2}[ T]\d{1,2}:\d{2}(?::\d{2})?|\d{2}[-/]\d{2}[-/]\d{4}[ T]\d{1,2}:\d{2}(?::\d{2})?)\b",
+        q,
+    )
     if dt_match:
         return dt_match.group(1)
 
@@ -297,7 +332,19 @@ class HandwrittenAgent:
 
         if (
             loss_ts_text
-            and any(term in q_lower for term in ("hailstorm", "loss", "calamity", "inundation", "landslide", "inform", "deadline", "hours"))
+            and any(
+                term in q_lower
+                for term in (
+                    "hailstorm",
+                    "loss",
+                    "calamity",
+                    "inundation",
+                    "landslide",
+                    "inform",
+                    "deadline",
+                    "hours",
+                )
+            )
             and step_num <= self.max_iterations
         ):
             thought = f"Loss timestamp identified ('{loss_ts_text}'). Checking 72-hour intimation deadline."
@@ -403,7 +450,11 @@ class HandwrittenAgent:
 
         if deadline_info:
             channels_str = ", ".join(deadline_info["reporting_channels"])
-            status_str = f"{deadline_info['remaining_hours']} hours remaining" if not deadline_info["is_expired"] else "Deadline has expired"
+            status_str = (
+                f"{deadline_info['remaining_hours']} hours remaining"
+                if not deadline_info["is_expired"]
+                else "Deadline has expired"
+            )
             answer_parts.append(
                 f"**Localized Calamity Intimation (72-Hour Rule):**\n"
                 f"- **Statutory Window:** Must be intimated within **72 hours** of loss occurrence.\n"
@@ -418,9 +469,9 @@ class HandwrittenAgent:
             )
         elif "inform" in q_lower and "channel" in q_lower:
             answer_parts.append(
-                f"**Intimation Deadline & Reporting Channels:**\n"
-                f"- **Statutory Window:** Localized calamity loss must be reported within **72 hours** of occurrence (Revamped OG, Para 15.1.2).\n"
-                f"- **Authorized Channels:** Crop Insurance App, Toll-Free Helpline (14447), Bank Branch / PACS, or Agriculture Officer."
+                "**Intimation Deadline & Reporting Channels:**\n"
+                "- **Statutory Window:** Localized calamity loss must be reported within **72 hours** of occurrence (Revamped OG, Para 15.1.2).\n"
+                "- **Authorized Channels:** Crop Insurance App, Toll-Free Helpline (14447), Bank Branch / PACS, or Agriculture Officer."
             )
 
         if search_result and search_result.get("hits"):
@@ -471,7 +522,11 @@ class HandwrittenAgent:
             )
 
         final_answer = "\n\n".join(answer_parts)
-        confidence = 0.95 if calc_result or deadline_info or (search_result and search_result.get("hits")) else 0.5
+        confidence = (
+            0.95
+            if calc_result or deadline_info or (search_result and search_result.get("hits"))
+            else 0.5
+        )
 
         return {
             "response_id": f"resp_{uuid.uuid4().hex[:10]}",

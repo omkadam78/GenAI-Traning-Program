@@ -1,22 +1,19 @@
 """Unit and regression tests for Unified LLM Provider, Idempotency, Timezone Handling, and Security."""
-from datetime import datetime, timezone, timedelta
+
+from datetime import timedelta
 import json
 import threading
 import time
 from unittest.mock import patch, MagicMock
 import pytest
 from fastapi.testclient import TestClient
-from fastapi import HTTPException
 
-from app.main import app, idempotency_manager
+from app.main import app
 from app.llm import (
     generate_chat_response,
     _call_groq_api,
-    _call_gemini_api,
     LLMAuthenticationError,
-    LLMError,
 )
-from app.tools import IST
 from ui.app import parse_iso_datetime
 
 client = TestClient(app)
@@ -25,6 +22,7 @@ client = TestClient(app)
 # ---------------------------------------------------------------------------
 # 1. Timezone-Aware ISO Parsing Tests (Live Claim Clock)
 # ---------------------------------------------------------------------------
+
 
 def test_parse_iso_datetime_with_ist_offset():
     """Verify ISO string with +05:30 offset parses into IST datetime."""
@@ -78,6 +76,7 @@ def test_parse_iso_datetime_invalid():
 # ---------------------------------------------------------------------------
 # 2. Idempotency Manager Tests (Deduplication, Conflict, Concurrency)
 # ---------------------------------------------------------------------------
+
 
 def test_idempotency_cache_hit():
     """Verify repeating a request with same Idempotency-Key returns cached response."""
@@ -151,6 +150,7 @@ def test_idempotency_concurrent_in_flight():
 # 3. Security: Scoped Feedback Endpoint Tests
 # ---------------------------------------------------------------------------
 
+
 def test_feedback_requires_thread_id():
     """Verify GET /feedback without thread_id query parameter returns 422 Unprocessable Entity."""
     r = client.get("/feedback")
@@ -191,6 +191,7 @@ def test_feedback_scoped_isolation():
 # 4. LLM Provider Interface, Offline Fallback & Reliability Tests
 # ---------------------------------------------------------------------------
 
+
 def test_llm_offline_fallback_when_keys_missing():
     """When no API keys are set, generate_chat_response must return deterministic-rule-engine."""
     with patch.dict("os.environ", {"GROQ_API_KEY": "", "GEMINI_API_KEY": ""}):
@@ -222,11 +223,13 @@ def test_llm_groq_mock_success():
         "choices": [
             {
                 "message": {
-                    "content": json.dumps({
-                        "answer": "Loss must be reported within 72 hours via the Crop Insurance App.",
-                        "confidence": 0.95,
-                        "follow_up": "Do you need the toll-free helpline number?",
-                    })
+                    "content": json.dumps(
+                        {
+                            "answer": "Loss must be reported within 72 hours via the Crop Insurance App.",
+                            "confidence": 0.95,
+                            "follow_up": "Do you need the toll-free helpline number?",
+                        }
+                    )
                 }
             }
         ],
@@ -258,17 +261,23 @@ def test_llm_automatic_secondary_fallback():
                 "content": {
                     "parts": [
                         {
-                            "text": json.dumps({
-                                "answer": "Gemini fallback: Report within 72 hours.",
-                                "confidence": 0.92,
-                                "follow_up": "Would you like help calculating premium?",
-                            })
+                            "text": json.dumps(
+                                {
+                                    "answer": "Gemini fallback: Report within 72 hours.",
+                                    "confidence": 0.92,
+                                    "follow_up": "Would you like help calculating premium?",
+                                }
+                            )
                         }
                     ]
                 }
             }
         ],
-        "usageMetadata": {"promptTokenCount": 80, "candidatesTokenCount": 25, "totalTokenCount": 105},
+        "usageMetadata": {
+            "promptTokenCount": 80,
+            "candidatesTokenCount": 25,
+            "totalTokenCount": 105,
+        },
     }
 
     groq_resp = MagicMock()
@@ -285,17 +294,25 @@ def test_llm_automatic_secondary_fallback():
             return groq_resp
         return gemini_resp
 
-    with patch.dict("os.environ", {
-        "GROQ_API_KEY": "gsk_primary_key",
-        "GEMINI_API_KEY": "AIzaSy_secondary_key",
-        "LLM_PROVIDER": "groq",
-    }):
+    with patch.dict(
+        "os.environ",
+        {
+            "GROQ_API_KEY": "gsk_primary_key",
+            "GEMINI_API_KEY": "AIzaSy_secondary_key",
+            "LLM_PROVIDER": "groq",
+        },
+    ):
         with patch("requests.post", side_effect=mock_post):
             res = generate_chat_response(
                 question="What is the deadline?",
                 prompt_version="v2",
                 top_k=1,
-                context_records=[{"rule_topic": "Claim deadline", "rule_text": "The reporting deadline is 72 hours."}],
+                context_records=[
+                    {
+                        "rule_topic": "Claim deadline",
+                        "rule_text": "The reporting deadline is 72 hours.",
+                    }
+                ],
             )
 
             assert res["provider"] == "gemini"

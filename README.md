@@ -2,37 +2,72 @@
 
 An AI-powered assistant for the Pradhan Mantri Fasal Bima Yojana (PMFBY).
 
-## Farmer interface and live AI fixes (18 November 2026)
+## Day 11: quality, Docker and a farmer-friendly interface
 
-The interface now presents three tasks: **Ask a question**, **Estimate premium**, and
-**Report crop loss**. Technical engine, HTTP/offline and session controls are removed.
-Premium estimates use a guided form and explicit confirmation. The loss form asks
-for both date and time and displays a live countdown with reporting channels.
-Chat retains clickable official sources, feedback and a conversation reset.
+English, Marathi and Hindi are available from the language selector. The interface
+keeps three clear actions: **Ask a question**, **Estimate premium** and
+**Report crop loss**. A custom crop-and-shield logo appears in the header and corner,
+with a matching favicon. No government affiliation is implied.
 
-![Farmer interface](docs/images/farmer-ui.jpg)
+![Marathi farmer interface](docs/images/day11-marathi.jpg)
 
-The previous configured model IDs were not usable for the supplied accounts.
-`GROQ_MODEL=openai/gpt-oss-20b` was verified with a real generation request.
-Gemini model listing succeeds, but generation with `gemini-flash-latest` timed out
-during verification; do not claim that fallback has been live-verified.
-The farmer-facing LangGraph answer path no longer silently substitutes offline
-templates after provider failure. Local premium/deadline tools remain deterministic.
-General premium-rate questions are routed to knowledge answering, not a calculator
-that demands land details. Configuration is read on each request without importing
-secrets into process environment. Keep real keys in ignored `.env` only.
+Premium estimates use verified Python tools and require confirmation. The reporting
+screen includes a live deadline clock, a preparation checklist and a downloadable
+reporting note. The note does not submit a claim. Never enter private identifiers.
+Marathi/Hindi questions are translated for retrieval, with numeric preservation
+checks; grounded answers use the selected language. Language interpretation can
+still be imperfect. English official source titles remain unchanged.
 
-Start the backend and UI from the same project checkout:
+Live farmer answers require a configured provider. The LangGraph path reports a
+provider failure rather than silently substituting templates. Premium and deadline
+arithmetic remain deterministic. Groq generation was verified locally; Gemini
+fallback generation has not been live-verified. Store keys only in ignored `.env`.
+
+### Run with Docker
+
+Requires a running Docker engine and Docker Compose v2.24 or newer. If ports 8000
+or 8501 are already occupied, stop the old project instance first.
 
 ```powershell
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
-# In another terminal:
-python -m streamlit run ui/app.py
+# Only if .env does not already exist:
+Copy-Item .env.example .env
+# Edit .env with your provider keys; never commit it.
+docker compose config --quiet
+docker compose up --build
 ```
 
-Set `FASALBIMA_API_URL` only for a different backend address. The UI does not
-silently start or switch backends. Live API checks are separate from automated
-tests, which run offline and isolate feedback storage.
+Open **http://localhost:8501**; API documentation is at
+**http://localhost:8000/docs**. Compose starts the API before the UI, uses its
+internal service address for UI requests, and includes health checks. First boot
+builds the vector index and may download an embedding model. Internet access is
+needed for package/model downloads and live LLM calls. Named volumes retain the
+index, model cache and feedback; the image does not contain `.env` or local feedback.
+
+```powershell
+docker compose run --rm --no-deps api python -m pytest -q
+docker compose run --rm --no-deps api python -m ruff check .
+docker compose down
+```
+
+**Verification limit:** Compose configuration validates. Docker Desktop/engine is
+not installed on the verification machine, so image build, container startup and
+container-based tests remain unverified. See [Day 11 verification](docs/day11_verification.md).
+
+### Run locally and check quality
+
+```powershell
+python -m pip install -r requirements-dev.txt
+python run.py
+# Separate terminal:
+python -m pytest -q
+python -m ruff check .
+python -m ruff format --check .
+```
+
+The launcher starts a matching API/UI pair. Custom ports are supported with
+`python run.py --backend-port 8050 --ui-port 8550`. The current local verification
+uses **http://127.0.0.1:8550**. Tests run offline with fake LLM responses and isolated
+feedback storage. Result: **76 passed**; Ruff lint and formatting pass.
 
 ## Problem
 Farmers often face difficulty understanding crop insurance guidelines, premium calculations, claim procedures, and statutory deadlines (such as the 72-hour localized calamity intimation window).
@@ -56,7 +91,7 @@ Farmers often face difficulty understanding crop insurance guidelines, premium c
 
 ---
 
-## Current Progress (Days 1–10)
+## Current Progress (Days 1–11)
 - **Day 1**: Python intro (`day01_intro.py`) and interactive menu (`day01_menu.py`).
 - **Day 2**: 20 starter PMFBY records (`data/sample_records.py`), reusable record utilities (`app/records.py`), and terminal CLI (`app/cli.py`).
 - **Day 3**: Official source downloader with manifest (`app/fetch.py`), `Record` dataclass (`app/models.py`), and PDF/HTML ingestion pipeline (`app/ingest.py` -> `data/records.json`).
@@ -66,37 +101,19 @@ Farmers often face difficulty understanding crop insurance guidelines, premium c
 - **Day 7**: Document chunking pipeline preserving source, page, and title (`app/chunking.py`), dense semantic embedding utilities (`app/embed.py`), persistent Chroma vectorstore (`app/vectorstore.py` with 1,786 indexed chunks), `GET /search/semantic` endpoint, and semantic evaluation report on 10 questions (`eval/search_results.md`).
 - **Day 8**: Grounded RAG engine with strict citations and personal claim refusal (`app/rag.py`), `POST /ask` endpoint, 15-question evaluation suite (`eval/eval_set.json`), dual-configuration experiment script (`eval/run_eval.py`), and configuration winner table.
 - **Day 9**: Agent tools (`app/tools.py` with pure arithmetic `pmfby_premium`, `pmfby_knowledge_search`, and `pmfby_claim_deadline_check`), hand-written ReAct loop (`app/agent_loop.py`), stateful LangGraph agent with native `interrupt()` and `Command(resume=...)` approval pause (`app/graph.py`), and unified `POST /agent` endpoint.
-- **Day 10 (Checkpoint 2)**: Full-featured Streamlit Web UI (`ui/app.py`), signature 72-Hour Calamity Intimation Clock with countdown, approval card with Approve/Cancel actions, transparent tool execution traces, genuine citations, and thumbs-up/down feedback collection saved to `data/feedback.jsonl` with deduplication.
+- **Day 10 (Checkpoint 2)**: Streamlit interface, live 72-hour clock, calculation approval, official citations and scoped feedback.
+- **Day 11**: Offline pytest coverage, Ruff lint/format configuration, Dockerfile and Compose services, documented run commands, and English/Marathi/Hindi farmer interface with custom branding and reporting checklist.
 
 ---
 
-## Day 10: Streamlit Web UI & Checkpoint 2
+## Streamlit behavior retained from Day 10
 
-![Streamlit UI](docs/images/streamlit_ui.png)
-
-### Key Features of the Streamlit Interface (`ui/app.py`):
-1. **Clean Zero-Fabricated State**:
-   - New sessions start with empty chat history, no pre-populated fake approvals, no unrequested clock calculations, and no preset feedback.
-   - Includes an explicit, opt-in `📌 Demo` button for users wishing to inspect sample multi-part scenarios in an isolated session.
-2. **Signature Feature — Live 72-Hour Calamity Intimation Clock**:
-   - Implements PMFBY Revamped Guidelines Paras 15.1.2 & 15.2.2 (localized calamities: hailstorm, landslide, inundation, cloudburst, natural fire; and post-harvest losses up to 14 days for cut-and-spread crops).
-   - Real-time automatic countdown via `@st.fragment(run_every="5s")` without full page reloads, recalculating remaining hours, minutes, and seconds from current `Asia/Kolkata` time against the fixed statutory deadline.
-   - Clearly flags expired deadlines and lists official reporting channels (Crop Insurance App, Krishi Rakshak Helpline 14447, Bank Branch / PACS, Local Agriculture Officer).
-   - Prominently displays statutory disclaimer that the clock calculates deadlines and does not file formal insurance claims.
-3. **LangGraph Native Interrupt Approval Card**:
-   - Pauses execution with native LangGraph `interrupt()` when financial calculations are requested.
-   - Binds approvals strictly to immutable parameters and unique calculation IDs (`calc_<uuid>`).
-   - Requires explicit `calculation_id` for approval or cancellation; rejects mismatched or missing IDs while preserving the pending state.
-   - Approved calculations resume via `Command(resume=...)` to execute `pmfby_premium`; cancellations halt immediately without executing tools.
-4. **Transparent Tool Traces & Official Citations**:
-   - Collapsible expanders reveal exact reasoning steps, inputs/outputs of executed tools (`pmfby_premium`, `pmfby_claim_deadline_check`, `pmfby_knowledge_search`), and official PMFBY guideline citations with source document, page number, and semantic relevance.
-5. **Farmer Feedback Collection**:
-   - Thumbs-up (👍) and Thumbs-down (👎) feedback buttons keyed to stable assistant `response_id`s.
-   - Thread-safe persistence with deduplication by `(thread_id, response_id)` (repeated votes update rather than duplicate; multiple responses in the same session remain isolated).
-   - Excluded from git tracking (`data/feedback.jsonl` added to `.gitignore`).
-6. **Strict Production Execution Architecture**:
-   - UI communicates with the FastAPI service via HTTP with client `request_id` idempotency.
-   - Displays clear connection and timeout errors rather than silently executing locally on failure.
+New sessions start empty. Premium calculations pause for explicit approval bound
+to an immutable calculation ID. Date and time are required for loss reporting, with
+an IST countdown refreshed every five seconds. Official citations remain clickable.
+Feedback is scoped per conversation and excluded from Git. Technical controls and
+internal tool traces are kept out of the farmer flow. The UI uses the API over HTTP;
+a connection failure is shown clearly without switching to a hidden local engine.
 
 ---
 
@@ -160,7 +177,7 @@ python -m pip install -r requirements.txt
 ```powershell
 Copy-Item .env.example .env
 ```
-*(Note: Never commit `.env`. If no API keys are provided, the system automatically uses the offline PMFBY rule synthesis engine.)*
+Never commit `.env`. Set a valid provider/key for live farmer answers. Explicit offline rule mode is available for development; it is not live inference.
 
 ### 3. Fetch & Ingest PMFBY Data
 ```powershell
@@ -195,9 +212,9 @@ Key Endpoints:
 
 ### 7. Launch the Streamlit Web Application (Day 10)
 ```powershell
-python -m streamlit run ui/app.py --server.port 8502
+python -m streamlit run ui/app.py --server.port 8501
 ```
-Open `http://localhost:8502` in your browser.
+Open `http://localhost:8501` in your browser.
 
 ### 8. Run Complete Test Suite
 ```powershell

@@ -6,6 +6,7 @@ Official Reference:
   - Para 15.1.2 & 15.2.2: Localized Calamities & Post-Harvest Losses 72-hour Intimation Rule.
 - Verified against pmfby.gov.in guidelines.
 """
+
 from __future__ import annotations
 
 import math
@@ -30,9 +31,9 @@ HECTARES_TO_ACRES = Decimal("2.471054")
 # Statutory PMFBY maximum farmer premium rates (% of Sum Insured)
 # Source: Revamped OG, Para 13.1 Table 1
 DEFAULT_RATE_MAP = {
-    "kharif_foodgrain_oilseed": Decimal("2.0"),    # Kharif food grains, cereals, pulses, and oilseeds
-    "rabi_foodgrain_oilseed": Decimal("1.5"),      # Rabi food grains, cereals, pulses, and oilseeds
-    "commercial_horticultural": Decimal("5.0"),    # Annual commercial & annual horticultural crops
+    "kharif_foodgrain_oilseed": Decimal("2.0"),  # Kharif food grains, cereals, pulses, and oilseeds
+    "rabi_foodgrain_oilseed": Decimal("1.5"),  # Rabi food grains, cereals, pulses, and oilseeds
+    "commercial_horticultural": Decimal("5.0"),  # Annual commercial & annual horticultural crops
 }
 
 # Verified crop-to-category associations under PMFBY
@@ -57,7 +58,6 @@ CROP_CATEGORY_MAP = {
     "peanut": ("kharif", "kharif_foodgrain_oilseed"),
     "sunflower": ("kharif", "kharif_foodgrain_oilseed"),
     "sesamum": ("kharif", "kharif_foodgrain_oilseed"),
-
     # Rabi foodgrain / oilseeds
     "wheat": ("rabi", "rabi_foodgrain_oilseed"),
     "gram": ("rabi", "rabi_foodgrain_oilseed"),
@@ -66,7 +66,6 @@ CROP_CATEGORY_MAP = {
     "mustard": ("rabi", "rabi_foodgrain_oilseed"),
     "barley": ("rabi", "rabi_foodgrain_oilseed"),
     "rabi jowar": ("rabi", "rabi_foodgrain_oilseed"),
-
     # Commercial / horticultural
     "cotton": ("annual", "commercial_horticultural"),
     "sugarcane": ("annual", "commercial_horticultural"),
@@ -155,7 +154,9 @@ def load_rate_table_from_records() -> Dict[str, Dict[str, Any]]:
     return rate_table
 
 
-def _validate_numeric(val: Any, field_name: str, allow_zero: bool = False, max_val: Optional[float] = None) -> Decimal:
+def _validate_numeric(
+    val: Any, field_name: str, allow_zero: bool = False, max_val: Optional[float] = None
+) -> Decimal:
     """Validate numeric input rejecting booleans, NaN, Inf, non-numbers, and invalid bounds."""
     if isinstance(val, bool):
         raise ValueError(f"{field_name} must be a number, not a boolean.")
@@ -190,14 +191,20 @@ def resolve_crop_and_category(
     Raises ValueError if evidence is missing, conflicting, or ambiguous.
     """
     if not crop and not crop_type:
-        raise ValueError("Crop name is required. Please specify the crop (e.g. 'soybean', 'wheat', 'cotton').")
+        raise ValueError(
+            "Crop name is required. Please specify the crop (e.g. 'soybean', 'wheat', 'cotton')."
+        )
 
     crop_clean = (crop or "").strip().lower()
     season_clean = (season or "").strip().lower()
     type_clean = (crop_type or "").strip().lower()
 
     # Direct category override if provided
-    if type_clean in ("kharif_foodgrain_oilseed", "rabi_foodgrain_oilseed", "commercial_horticultural"):
+    if type_clean in (
+        "kharif_foodgrain_oilseed",
+        "rabi_foodgrain_oilseed",
+        "commercial_horticultural",
+    ):
         resolved_season = season_clean or ("rabi" if "rabi" in type_clean else "kharif")
         return crop_clean or type_clean, resolved_season, type_clean
 
@@ -206,12 +213,19 @@ def resolve_crop_and_category(
         default_season, category = CROP_CATEGORY_MAP[crop_clean]
         if season_clean:
             # Validate season/crop consistency against PMFBY classifications
-            if crop_clean in ("wheat", "gram", "mustard", "barley", "chickpea", "chana") and season_clean == "kharif":
+            if (
+                crop_clean in ("wheat", "gram", "mustard", "barley", "chickpea", "chana")
+                and season_clean == "kharif"
+            ):
                 raise ValueError(
                     f"Conflicting season/crop: '{crop.title()}' is classified as a Rabi foodgrain crop under PMFBY guidelines. "
                     "Cannot calculate under Kharif season without official state notification evidence."
                 )
-            if crop_clean in ("soybean", "soya", "paddy", "rice", "cotton", "tur", "groundnut", "maize") and season_clean == "rabi":
+            if (
+                crop_clean
+                in ("soybean", "soya", "paddy", "rice", "cotton", "tur", "groundnut", "maize")
+                and season_clean == "rabi"
+            ):
                 raise ValueError(
                     f"Conflicting season/crop: '{crop.title()}' is classified as a Kharif/Annual crop under PMFBY guidelines. "
                     "Cannot calculate under Rabi season without official state notification evidence."
@@ -310,29 +324,45 @@ def pmfby_premium(
     is_per_acre_sof = sof_unit in {"per_acre", "acre"}
 
     if is_acre_area:
-        area_ha_dec = (area_raw_dec * ACRES_TO_HECTARES).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
+        area_ha_dec = (area_raw_dec * ACRES_TO_HECTARES).quantize(
+            Decimal("0.0001"), rounding=ROUND_HALF_UP
+        )
     else:
         area_ha_dec = area_raw_dec
 
     # 2. Compute Sum Insured matching units
     if is_acre_area and is_per_acre_sof:
         # Both in acres: scale_of_finance (₹/acre) * area (acres)
-        sum_insured_dec = (sof_raw_dec * area_raw_dec).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        sof_per_ha_dec = (sof_raw_dec * HECTARES_TO_ACRES).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        sum_insured_dec = (sof_raw_dec * area_raw_dec).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+        sof_per_ha_dec = (sof_raw_dec * HECTARES_TO_ACRES).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
         conversion_desc = f"{area_raw_dec} acres @ ₹{sof_raw_dec:,.2f}/acre"
     elif is_acre_area and not is_per_acre_sof:
         # Area in acres, SOF in ₹/ha: convert area to ha
-        sum_insured_dec = (sof_raw_dec * area_ha_dec).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        sum_insured_dec = (sof_raw_dec * area_ha_dec).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
         sof_per_ha_dec = sof_raw_dec
         conversion_desc = f"{area_raw_dec} acres ({area_ha_dec} ha converted at 1 acre = 0.404686 ha) @ ₹{sof_raw_dec:,.2f}/ha"
     elif not is_acre_area and is_per_acre_sof:
         # Area in ha, SOF in ₹/acre: convert SOF to ₹/ha
-        sof_per_ha_dec = (sof_raw_dec * HECTARES_TO_ACRES).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        sum_insured_dec = (sof_per_ha_dec * area_raw_dec).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-        conversion_desc = f"{area_raw_dec} ha @ ₹{sof_raw_dec:,.2f}/acre (converted to ₹{sof_per_ha_dec:,.2f}/ha)"
+        sof_per_ha_dec = (sof_raw_dec * HECTARES_TO_ACRES).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+        sum_insured_dec = (sof_per_ha_dec * area_raw_dec).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+        conversion_desc = (
+            f"{area_raw_dec} ha @ ₹{sof_raw_dec:,.2f}/acre (converted to ₹{sof_per_ha_dec:,.2f}/ha)"
+        )
     else:
         # Standard: Both in hectares
-        sum_insured_dec = (sof_raw_dec * area_raw_dec).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        sum_insured_dec = (sof_raw_dec * area_raw_dec).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
         sof_per_ha_dec = sof_raw_dec
         conversion_desc = f"{area_raw_dec} ha @ ₹{sof_raw_dec:,.2f}/ha"
 
@@ -425,7 +455,9 @@ def parse_loss_timestamp(loss_input: Any, now: Optional[datetime] = None) -> dat
     if isinstance(loss_input, datetime):
         dt = loss_input if loss_input.tzinfo else loss_input.replace(tzinfo=IST)
         if dt > clock_now:
-            raise ValueError("Loss event date cannot be in the future. Please provide when the calamity occurred.")
+            raise ValueError(
+                "Loss event date cannot be in the future. Please provide when the calamity occurred."
+            )
         return dt
 
     s = str(loss_input).strip()
@@ -448,7 +480,9 @@ def parse_loss_timestamp(loss_input: Any, now: Optional[datetime] = None) -> dat
                 hr = 0
             loss_time = time(hr, mn)
         else:
-            raise ValueError("Please provide the approximate time of loss (e.g. 'yesterday at 9 pm') to calculate the 72-hour window.")
+            raise ValueError(
+                "Please provide the approximate time of loss (e.g. 'yesterday at 9 pm') to calculate the 72-hour window."
+            )
         dt = datetime.combine(loss_date, loss_time, tzinfo=IST)
         if dt > clock_now:
             raise ValueError("Loss event date cannot be in the future.")
@@ -467,7 +501,9 @@ def parse_loss_timestamp(loss_input: Any, now: Optional[datetime] = None) -> dat
                 hr = 0
             loss_time = time(hr, mn)
         else:
-            raise ValueError("Please provide the approximate time of loss (e.g. 'today at 10 am') to calculate the 72-hour window.")
+            raise ValueError(
+                "Please provide the approximate time of loss (e.g. 'today at 10 am') to calculate the 72-hour window."
+            )
         dt = datetime.combine(loss_date, loss_time, tzinfo=IST)
         if dt > clock_now:
             raise ValueError("Loss event date cannot be in the future.")
@@ -500,7 +536,9 @@ def parse_loss_timestamp(loss_input: Any, now: Optional[datetime] = None) -> dat
         try:
             d = datetime.strptime(s, fmt).replace(tzinfo=IST)
             if d > clock_now:
-                raise ValueError("Loss event date cannot be in the future. Please provide when the calamity occurred.")
+                raise ValueError(
+                    "Loss event date cannot be in the future. Please provide when the calamity occurred."
+                )
             return d
         except ValueError as e:
             if "future" in str(e):
@@ -558,25 +596,40 @@ def pmfby_claim_deadline_check(
     }
 
 
-def pmfby_knowledge_search(query: str, top_k: int = 3, collection_name: Optional[str] = None) -> Dict[str, Any]:
+def pmfby_knowledge_search(
+    query: str, top_k: int = 3, collection_name: Optional[str] = None
+) -> Dict[str, Any]:
     """RAG semantic search tool over PMFBY official guidelines chunks."""
     if not query or not query.strip():
         raise ValueError("Search query cannot be empty.")
-    hits = query_semantic(query, top_k=top_k, collection_name=collection_name or "fasalbima_sathi_chunks")
+    hits = query_semantic(
+        query, top_k=top_k, collection_name=collection_name or "fasalbima_sathi_chunks"
+    )
     # Short structured provisions complement long PDF passages. For a general
     # premium question include every crop category, rather than just Kharif.
     from app.smart_search import smart_search
+
     records = load_records()
-    general_rates = 'premium' in query.casefold() and not any(
-        word in query.casefold() for word in ('kharif', 'rabi', 'soybean', 'wheat', 'cotton'))
-    selected = ([r for r in records if 'premium cap' in r.get('rule_topic', '').lower()]
-                if general_rates else smart_search(records, query, top_k=2))
-    provisions = [{
-        'chunk_id': f"record_{r['id']}", 'text': r['rule_text'],
-        'title': r['rule_topic'], 'source': r.get('source_url', ''),
-        'page': None, 'og_version': r.get('og_version', ''),
-        'score': r.get('score', 1.0),
-    } for r in selected]
+    general_rates = "premium" in query.casefold() and not any(
+        word in query.casefold() for word in ("kharif", "rabi", "soybean", "wheat", "cotton")
+    )
+    selected = (
+        [r for r in records if "premium cap" in r.get("rule_topic", "").lower()]
+        if general_rates
+        else smart_search(records, query, top_k=2)
+    )
+    provisions = [
+        {
+            "chunk_id": f"record_{r['id']}",
+            "text": r["rule_text"],
+            "title": r["rule_topic"],
+            "source": r.get("source_url", ""),
+            "page": None,
+            "og_version": r.get("og_version", ""),
+            "score": r.get("score", 1.0),
+        }
+        for r in selected
+    ]
     hits = provisions + hits
     return {
         "query": query,

@@ -7,6 +7,7 @@
 5. Feedback deduplication with (thread_id, response_id) pairs.
 6. Streamlit UI AppTest verifying clean zero-fabricated initial state.
 """
+
 from datetime import datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
@@ -25,8 +26,6 @@ from app.tools import (
     IST,
     load_rate_table_from_records,
     parse_loss_timestamp,
-    pmfby_claim_deadline_check,
-    pmfby_premium,
     resolve_crop_and_category,
 )
 from app.agent_loop import extract_loss_timestamp_text
@@ -36,6 +35,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 # --- 1. TIMESTAMP HANDLING WITHOUT INVENTED DEFAULTS ---
+
 
 def test_bare_relative_timestamps_require_time():
     """Ensure bare 'yesterday', 'today', or date-only terms raise honest clarifications rather than inventing 9 PM."""
@@ -81,6 +81,7 @@ def test_agent_extract_loss_timestamp_text():
 
 # --- 2. EXACT CALCULATION ID ENFORCEMENT & PRESERVATION ---
 
+
 def test_approval_requires_exact_calculation_id_and_preserves_interrupt():
     """Ensure missing or mismatched calculation_id preserves pending interrupt without executing tools."""
     sess = f"test_calc_id_enforce_{uuid.uuid4().hex[:8]}"
@@ -122,7 +123,9 @@ def test_two_successive_calculations_require_fresh_approval():
     sess = f"test_successive_calcs_{uuid.uuid4().hex[:8]}"
 
     # Turn 1: First calculation (Soybean 1.0 ha)
-    r1 = run_langgraph_agent(query="Calculate soybean premium for 1 ha at scale of finance 40000", thread_id=sess)
+    r1 = run_langgraph_agent(
+        query="Calculate soybean premium for 1 ha at scale of finance 40000", thread_id=sess
+    )
     assert r1["status"] == "approval_required"
     calc1_id = r1["pending_calculation"]["id"]
     # Approve Turn 1
@@ -131,7 +134,9 @@ def test_two_successive_calculations_require_fresh_approval():
     assert "40,000" in r1_app["answer"]
 
     # Turn 2: Second calculation (Wheat 2.0 ha)
-    r2 = run_langgraph_agent(query="Calculate wheat premium for 2 ha at scale of finance 45000", thread_id=sess)
+    r2 = run_langgraph_agent(
+        query="Calculate wheat premium for 2 ha at scale of finance 45000", thread_id=sess
+    )
     assert r2["status"] == "approval_required"
     assert r2["requires_approval"] is True
     calc2_id = r2["pending_calculation"]["id"]
@@ -145,14 +150,19 @@ def test_two_successive_calculations_require_fresh_approval():
 
 # --- 3. CROP AND SEASON CONSISTENCY VALIDATION ---
 
+
 def test_crop_season_consistency():
     """Ensure conflicting crop-season pairs raise explicit validation errors."""
     # Wheat is strictly Rabi; cannot calculate under Kharif
-    with pytest.raises(ValueError, match="Conflicting season/crop: 'Wheat' is classified as a Rabi"):
+    with pytest.raises(
+        ValueError, match="Conflicting season/crop: 'Wheat' is classified as a Rabi"
+    ):
         resolve_crop_and_category(crop="wheat", season="kharif")
 
     # Soybean is strictly Kharif; cannot calculate under Rabi
-    with pytest.raises(ValueError, match="Conflicting season/crop: 'Soybean' is classified as a Kharif"):
+    with pytest.raises(
+        ValueError, match="Conflicting season/crop: 'Soybean' is classified as a Kharif"
+    ):
         resolve_crop_and_category(crop="soybean", season="rabi")
 
     # Correct seasons must resolve accurately
@@ -166,6 +176,7 @@ def test_crop_season_consistency():
 
 
 # --- 4. RATE TABLE EVIDENCE VALIDATION ---
+
 
 def test_rate_table_from_records_authenticity():
     """Ensure rates are loaded authentically from records.json."""
@@ -181,6 +192,7 @@ def test_rate_table_from_records_authenticity():
 
 # --- 5. FEEDBACK DEDUPLICATION BY (THREAD_ID, RESPONSE_ID) ---
 
+
 def test_feedback_deduplication_by_response_id():
     """Verify that multiple ratings for the same response_id update rather than duplicate, while different response_ids remain distinct."""
     thread_id = f"test_fb_dedup_{uuid.uuid4().hex[:8]}"
@@ -190,7 +202,12 @@ def test_feedback_deduplication_by_response_id():
     # Submit upvote for response 1
     r1 = client.post(
         "/feedback",
-        json={"thread_id": thread_id, "response_id": resp1_id, "query": "What is PMFBY?", "rating": "up"},
+        json={
+            "thread_id": thread_id,
+            "response_id": resp1_id,
+            "query": "What is PMFBY?",
+            "rating": "up",
+        },
     )
     assert r1.status_code == 200
     assert r1.json()["updated"] is False
@@ -198,7 +215,12 @@ def test_feedback_deduplication_by_response_id():
     # Change vote to downvote for response 1 -> Must UPDATE (not duplicate)
     r1_change = client.post(
         "/feedback",
-        json={"thread_id": thread_id, "response_id": resp1_id, "query": "What is PMFBY?", "rating": "down"},
+        json={
+            "thread_id": thread_id,
+            "response_id": resp1_id,
+            "query": "What is PMFBY?",
+            "rating": "down",
+        },
     )
     assert r1_change.status_code == 200
     assert r1_change.json()["updated"] is True
@@ -206,7 +228,12 @@ def test_feedback_deduplication_by_response_id():
     # Submit vote for a DIFFERENT response 2 in the same thread
     r2 = client.post(
         "/feedback",
-        json={"thread_id": thread_id, "response_id": resp2_id, "query": "What is 72h rule?", "rating": "up"},
+        json={
+            "thread_id": thread_id,
+            "response_id": resp2_id,
+            "query": "What is 72h rule?",
+            "rating": "up",
+        },
     )
     assert r2.status_code == 200
     assert r2.json()["updated"] is False
@@ -221,6 +248,7 @@ def test_feedback_deduplication_by_response_id():
 
 
 # --- 6. STREAMLIT UI APPTEST: ZERO FABRICATED INITIAL STATE ---
+
 
 def test_streamlit_ui_initializes_empty_without_fabricated_state():
     """AppTest verification: ui/app.py starts clean with zero fabricated conversation, approval, or clock state."""

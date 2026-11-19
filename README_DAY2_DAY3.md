@@ -32,6 +32,7 @@ Convert dictionaries to dataclass objects:
 ```python
 from app.records import load_records
 from app.models import Record
+
 objects = [Record.from_dict(row) for row in load_records()]
 print(objects[0])
 ```

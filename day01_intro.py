@@ -1,4 +1,3 @@
-
 # FasalBima Sathi - Project Introduction
 
 # Step 1: Store project information in variables

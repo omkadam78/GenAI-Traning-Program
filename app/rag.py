@@ -1,7 +1,6 @@
 """Retrieval-Augmented Generation (RAG) pipeline for FasalBima Sathi."""
-import logging
+
 from pathlib import Path
-import re
 from typing import Any
 
 from app.llm import generate_chat_response, is_personal_claim_query
@@ -138,4 +137,3 @@ def ask_rag(
         "provider": llm_res.get("provider", "rag-engine"),
         "model": llm_res.get("model", "pmfby-rag-v1"),
     }
-

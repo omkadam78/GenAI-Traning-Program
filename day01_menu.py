@@ -1,11 +1,9 @@
-
 # FasalBima Sathi - Interactive Menu
 
 # Sample crop list
 crops = ["Soybean", "Cotton", "Rice", "Wheat"]
 
 while True:
-
     print("\n================================")
     print("       FASALBIMA SATHI")
     print("================================")
@@ -34,8 +32,7 @@ while True:
     elif choice == "3":
         selected_crop = input("Enter your crop name: ").strip().lower()
 
-        if selected_crop in [crop.lower() for
-         crop in crops]:
+        if selected_crop in [crop.lower() for crop in crops]:
             print(f"{selected_crop.title()} is in our sample crop list.")
             print("Actual PMFBY eligibility depends on notified")
             print("crop, location, season and applicable rules.")

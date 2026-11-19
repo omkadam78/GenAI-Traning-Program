@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 96" role="img" aria-label="FasalBima Sathi — crop insurance help">
+ <rect width="88" height="88" y="4" rx="23" fill="#173F2C"/>
+ <path d="M44 17 68 27v20c0 15-11 26-24 32-13-6-24-17-24-32V27Z" fill="none" stroke="#D7E9D3" stroke-width="2.6"/>
+ <path d="M44 65V31" stroke="#F1C66C" stroke-width="3" stroke-linecap="round"/>
+ <g fill="#F1C66C"><path d="M44 43C33 43 30 36 30 31c9 0 14 5 14 12Z"/><path d="M44 54c-11 0-14-7-14-12 9 0 14 5 14 12Z"/><path d="M44 43c11 0 14-7 14-12-9 0-14 5-14 12Z"/><path d="M44 54c11 0 14-7 14-12-9 0-14 5-14 12Z"/></g>
+ <text x="108" y="45" font-family="Arial,sans-serif" font-size="32" font-weight="700" fill="#173F2C">FasalBima Sathi</text>
+ <text x="109" y="70" font-family="Arial,sans-serif" font-size="15" letter-spacing="1.1" fill="#657B68">YOUR HARVEST. OUR GUIDANCE.</text>
+</svg>

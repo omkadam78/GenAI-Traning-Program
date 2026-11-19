@@ -1,4 +1,5 @@
 """Exploratory data analysis of FasalBima Sathi PMFBY records using pandas."""
+
 import pandas as pd
 
 from app.records import load_records
@@ -28,7 +29,9 @@ def analyze_records() -> dict:
 def main():
     stats = analyze_records()
     print("=== FasalBima Sathi Dataset Facts (pandas) ===")
-    print(f"Fact 1 - Total records & guideline versions: {stats['total_records']} records across {len(stats['version_counts'])} version citations.")
+    print(
+        f"Fact 1 - Total records & guideline versions: {stats['total_records']} records across {len(stats['version_counts'])} version citations."
+    )
     for ver, cnt in list(stats["version_counts"].items())[:5]:
         print(f"   * {ver}: {cnt}")
     print(
@@ -46,4 +49,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

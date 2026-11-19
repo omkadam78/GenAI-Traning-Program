@@ -1,17 +1,14 @@
 """Unit and regression tests for Day 10 UI, LangGraph interrupt, claim clock, and feedback."""
+
 from datetime import datetime
-from decimal import Decimal
-import json
 from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from app.agent_loop import run_agent_loop
 from app.graph import run_langgraph_agent
 from app.main import app
 from app.tools import (
     IST,
-    pmfby_claim_deadline_check,
     pmfby_premium,
 )
 
@@ -142,4 +139,3 @@ def test_feedback_submission_and_deduplication():
     matching = [e for e in fb_list if e.get("thread_id") == thread_id and e.get("query") == query]
     assert len(matching) == 1
     assert matching[0]["rating"] == "down"
-

@@ -1,0 +1,43 @@
+services:
+  api:
+    build: .
+    image: fasalbima-sathi:day11
+    command: ["sh", "-c", "python -m app.vectorstore && exec python -m uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      FASALBIMA_FEEDBACK_FILE: /app/data/runtime/feedback.jsonl
+      ANONYMIZED_TELEMETRY: "False"
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - vectors:/app/data/chroma_db
+      - feedback:/app/data/runtime
+      - model_cache:/home/farmer/.cache
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"]
+      interval: 10s
+      timeout: 8s
+      retries: 12
+      start_period: 180s
+  ui:
+    image: fasalbima-sathi:day11
+    build: .
+    command: ["python", "-m", "streamlit", "run", "ui/app.py", "--server.address=0.0.0.0", "--server.port=8501", "--server.headless=true"]
+    environment:
+      FASALBIMA_API_URL: http://api:8000
+    ports:
+      - "127.0.0.1:8501:8501"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501/_stcore/health', timeout=5)"]
+      interval: 10s
+      timeout: 8s
+      retries: 6
+volumes:
+  vectors:
+  feedback:
+  model_cache:

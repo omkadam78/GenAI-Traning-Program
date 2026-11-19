@@ -12,9 +12,8 @@ Covers:
 - Tool failures, refusal behavior, and truthful tool traces.
 - FastAPI POST /agent endpoint validations and error handling.
 """
+
 from datetime import datetime
-from decimal import Decimal
-import zoneinfo
 import pytest
 from fastapi.testclient import TestClient
 
@@ -24,7 +23,6 @@ from app.main import app
 from app.tools import (
     IST,
     pmfby_claim_deadline_check,
-    pmfby_knowledge_search,
     pmfby_premium,
 )
 
@@ -107,9 +105,7 @@ def test_pmfby_premium_input_validation():
 # ---------------------------------------------------------------------------
 def test_acres_to_hectares_conversion():
     # 2.47105 acres should convert to 1.0 ha
-    res_acres = pmfby_premium(
-        scale_of_finance=50000, area=2.47105, unit="acres", crop="soybean"
-    )
+    res_acres = pmfby_premium(scale_of_finance=50000, area=2.47105, unit="acres", crop="soybean")
     assert abs(res_acres["area_ha"] - 1.0) < 0.01
     assert res_acres["sum_insured"] == 50000.0
 
@@ -178,7 +174,9 @@ def test_handwritten_agent_behavior():
     assert res_q6["confidence"] == 0.0
     assert res_q6["tools_called"] == []
 
-    res_q15 = run_agent_loop("Can you check if my payment has reached my State Bank of India account?")
+    res_q15 = run_agent_loop(
+        "Can you check if my payment has reached my State Bank of India account?"
+    )
     assert "i don't know" in res_q15["answer"].lower()
     assert res_q15["tools_called"] == []
 

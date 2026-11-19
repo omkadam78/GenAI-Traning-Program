@@ -13,19 +13,18 @@ Uses LangGraph MemorySaver for in-memory session checkpointing across conversati
 State is strictly isolated per conversation ID (thread_id). Note that in-memory checkpoints
 persist across turns within the running process, but do not persist across server restarts.
 """
+
 from __future__ import annotations
 
 import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional, TypedDict
-import zoneinfo
 
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command, interrupt
 
 from app.agent_loop import (
-    OUT_OF_SCOPE_PATTERNS,
     _is_out_of_scope,
     extract_loss_timestamp_text,
     extract_premium_params,
@@ -45,6 +44,7 @@ DISCLAIMER = (
 
 class AgentState(TypedDict, total=False):
     """LangGraph state representation for PMFBY agent."""
+
     thread_id: str
     query: str
     intent: str  # "refusal", "premium_calc", "knowledge_search", "compound", "clarification"
@@ -60,6 +60,7 @@ class AgentState(TypedDict, total=False):
     confidence: float
     provider: str
     model: str
+    language: str
 
 
 def classify_node(state: AgentState) -> Dict[str, Any]:
@@ -71,11 +72,12 @@ def classify_node(state: AgentState) -> Dict[str, Any]:
     # Reset request-specific traces for fresh turn
     steps: List[str] = []
     tool_calls: List[Dict[str, Any]] = []
-    citations: List[Dict[str, Any]] = []
 
     # Case A: Out-of-scope check (Strict Q6 mandate)
     if _is_out_of_scope(query):
-        steps.append("Classified query as out-of-scope personal claim/bank status -> Route to refusal")
+        steps.append(
+            "Classified query as out-of-scope personal claim/bank status -> Route to refusal"
+        )
         return {
             "thread_id": thread_id,
             "intent": "refusal",
@@ -92,14 +94,28 @@ def classify_node(state: AgentState) -> Dict[str, Any]:
     loss_ts_text = extract_loss_timestamp_text(query)
     compound_deadline: Optional[Dict[str, Any]] = None
     deadline_clarification: Optional[str] = None
-    if loss_ts_text and any(t in q_low for t in ("hailstorm", "loss", "calamity", "inundation", "landslide", "inform", "deadline", "hours")):
+    if loss_ts_text and any(
+        t in q_low
+        for t in (
+            "hailstorm",
+            "loss",
+            "calamity",
+            "inundation",
+            "landslide",
+            "inform",
+            "deadline",
+            "hours",
+        )
+    ):
         try:
             deadline_res = pmfby_claim_deadline_check(loss_timestamp=loss_ts_text, window_hours=72)
-            tool_calls.append({
-                "tool": "pmfby_claim_deadline_check",
-                "input": {"loss_timestamp": loss_ts_text, "window_hours": 72},
-                "output": deadline_res,
-            })
+            tool_calls.append(
+                {
+                    "tool": "pmfby_claim_deadline_check",
+                    "input": {"loss_timestamp": loss_ts_text, "window_hours": 72},
+                    "output": deadline_res,
+                }
+            )
             steps.append(
                 f"Tool executed: pmfby_claim_deadline_check -> Deadline: {deadline_res['deadline_timestamp']}, "
                 f"remaining: {deadline_res['remaining_hours']}h"
@@ -123,8 +139,12 @@ def classify_node(state: AgentState) -> Dict[str, Any]:
             missing.append("scale of finance in ₹ per ha/acre")
 
         if missing:
-            steps.append(f"Calculation requested but missing inputs: {missing} -> Route to clarification")
-            clarification_msg = f"To calculate your PMFBY premium, please specify: {', '.join(missing)}."
+            steps.append(
+                f"Calculation requested but missing inputs: {missing} -> Route to clarification"
+            )
+            clarification_msg = (
+                f"To calculate your PMFBY premium, please specify: {', '.join(missing)}."
+            )
             if compound_deadline:
                 clarification_msg = (
                     f"**Localized Calamity Intimation (72-Hour Rule):**\n"
@@ -181,7 +201,9 @@ def classify_node(state: AgentState) -> Dict[str, Any]:
         }
 
     # Case C: Knowledge search / policy question (does NOT reuse old calculation parameters)
-    steps.append("Classified query as PMFBY guideline / policy question -> Route to knowledge search")
+    steps.append(
+        "Classified query as PMFBY guideline / policy question -> Route to knowledge search"
+    )
     return {
         "thread_id": thread_id,
         "intent": "knowledge_search",
@@ -281,7 +303,9 @@ def approval_gate_node(state: AgentState) -> Dict[str, Any]:
         "message": prompt_answer,
     }
 
-    steps.append(f"Approval gate: Calling interrupt() for calculation ID '{calc_id}'. Pausing graph.")
+    steps.append(
+        f"Approval gate: Calling interrupt() for calculation ID '{calc_id}'. Pausing graph."
+    )
 
     # Native LangGraph interrupt: Pauses graph until resumed with Command(resume=...)
     resume_payload = interrupt(interrupt_payload)
@@ -394,8 +418,16 @@ def search_node(state: AgentState) -> Dict[str, Any]:
 
     try:
         search_res = pmfby_knowledge_search(query, top_k=3)
-        tool_calls.append({"tool": "pmfby_knowledge_search", "input": {"query": query, "top_k": 3}, "output": search_res})
-        steps.append(f"Tool executed: pmfby_knowledge_search -> Retrieved {len(search_res['hits'])} chunks")
+        tool_calls.append(
+            {
+                "tool": "pmfby_knowledge_search",
+                "input": {"query": query, "top_k": 3},
+                "output": search_res,
+            }
+        )
+        steps.append(
+            f"Tool executed: pmfby_knowledge_search -> Retrieved {len(search_res['hits'])} chunks"
+        )
 
         for hit in search_res.get("hits", []):
             citations.append(
@@ -447,6 +479,7 @@ def search_node(state: AgentState) -> Dict[str, Any]:
                 top_k=len(adapted_records),
                 context_records=adapted_records,
                 allow_offline_fallback=False,
+                answer_language=state.get("language", "en"),
             )
             answer_parts.append(llm_res.get("answer", ""))
             confidence = float(llm_res.get("confidence", 0.9))
@@ -461,7 +494,7 @@ def search_node(state: AgentState) -> Dict[str, Any]:
             confidence = 0.4
 
         answer = "\n\n".join(answer_parts)
-    except Exception as err:
+    except Exception:
         answer = "Sorry, I could not get a reliable answer right now. Please try again shortly. For urgent crop-loss reporting, contact your insurer or agriculture office."
         confidence = 0.0
 
@@ -519,6 +552,7 @@ def run_langgraph_agent(
     thread_id: Optional[str] = None,
     approved: Optional[bool] = None,
     calculation_id: Optional[str] = None,
+    language: str = "en",
 ) -> Dict[str, Any]:
     """Run or resume the LangGraph agent across conversational turns with isolated memory.
 
@@ -526,7 +560,11 @@ def run_langgraph_agent(
     State is persisted per thread_id in MemorySaver across turns in the process runtime.
     """
     # Enforce unique conversation ID isolation; never share a global default thread
-    active_thread = thread_id.strip() if thread_id and thread_id.strip() and thread_id not in {"default", "default_thread"} else f"session_{uuid.uuid4().hex[:12]}"
+    active_thread = (
+        thread_id.strip()
+        if thread_id and thread_id.strip() and thread_id not in {"default", "default_thread"}
+        else f"session_{uuid.uuid4().hex[:12]}"
+    )
     config = {"configurable": {"thread_id": active_thread}}
 
     # Case 1: Resuming an interrupted calculation with approval (approved is True or False)
@@ -544,7 +582,9 @@ def run_langgraph_agent(
                 "requires_approval": False,
                 "intent": "approval_rejected",
                 "tool_calls": [],
-                "steps": ["Received approval/cancellation without an active pending calculation -> Route to rejection"],
+                "steps": [
+                    "Received approval/cancellation without an active pending calculation -> Route to rejection"
+                ],
                 "citations": [],
                 "confidence": 0.0,
                 "disclaimer": DISCLAIMER,
@@ -571,7 +611,9 @@ def run_langgraph_agent(
                 "pending_calculation": {"id": expected_calc_id, "params": expected_params},
                 "intent": "approval_rejected",
                 "tool_calls": [],
-                "steps": ["Missing calculation_id -> Preserved pending calculation and rejected approval request"],
+                "steps": [
+                    "Missing calculation_id -> Preserved pending calculation and rejected approval request"
+                ],
                 "citations": [],
                 "confidence": 0.0,
                 "disclaimer": DISCLAIMER,
@@ -592,7 +634,9 @@ def run_langgraph_agent(
                 "pending_calculation": {"id": expected_calc_id, "params": expected_params},
                 "intent": "approval_rejected",
                 "tool_calls": [],
-                "steps": [f"Mismatched calculation_id ('{calculation_id}' != '{expected_calc_id}') -> Preserved pending calculation and rejected"],
+                "steps": [
+                    f"Mismatched calculation_id ('{calculation_id}' != '{expected_calc_id}') -> Preserved pending calculation and rejected"
+                ],
                 "citations": [],
                 "confidence": 0.0,
                 "disclaimer": DISCLAIMER,
@@ -617,7 +661,11 @@ def run_langgraph_agent(
         }
 
     # Case 2: New user query turn
-    input_payload: Dict[str, Any] = {"thread_id": active_thread, "query": query or ""}
+    input_payload: Dict[str, Any] = {
+        "thread_id": active_thread,
+        "query": query or "",
+        "language": language,
+    }
     result = pmfby_agent_graph.invoke(input_payload, config=config)
 
     # Check if the graph paused at an interrupt()
@@ -631,7 +679,10 @@ def run_langgraph_agent(
             "status": "approval_required",
             "requires_approval": True,
             "intent": "premium_calc",
-            "pending_calculation": {"id": interrupt_val.get("calculation_id"), "params": interrupt_val.get("params")},
+            "pending_calculation": {
+                "id": interrupt_val.get("calculation_id"),
+                "params": interrupt_val.get("params"),
+            },
             "tool_calls": [],
             "steps": ["Approval gate: Pausing for user confirmation via LangGraph interrupt()."],
             "citations": [],

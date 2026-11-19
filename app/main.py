@@ -1,4 +1,5 @@
 """FastAPI service for FasalBima Sathi (Days 4–9)."""
+
 from __future__ import annotations
 import re
 import uuid
@@ -16,7 +17,6 @@ from app.tools import pmfby_claim_deadline_check
 from app.vectorstore import query_semantic
 from pathlib import Path
 import json
-import logging
 import threading
 from datetime import datetime
 import zoneinfo
@@ -24,9 +24,15 @@ import zoneinfo
 import hashlib
 from collections import OrderedDict
 import time
+import os
+from typing import Literal
+
+from app.language import localize_result, prepare_query
 
 ROOT = Path(__file__).resolve().parents[1]
-FEEDBACK_FILE = ROOT / "data" / "feedback.jsonl"
+FEEDBACK_FILE = Path(
+    os.environ.get("FASALBIMA_FEEDBACK_FILE", str(ROOT / "data" / "feedback.jsonl"))
+)
 IST = zoneinfo.ZoneInfo("Asia/Kolkata")
 _FEEDBACK_LOCK = threading.Lock()
 
@@ -39,15 +45,16 @@ class IdempotencyManager:
         self.ttl_seconds = ttl_seconds
         self.cache: OrderedDict[str, dict] = OrderedDict()
         self.in_flight: dict[str, threading.Event] = {}
+        self.in_flight_hashes: dict[str, str] = {}
         self.lock = threading.Lock()
 
     def _hash_payload(self, payload: AgentRequest) -> str:
-        s = f"{payload.thread_id}|{payload.query}|{payload.approved}|{payload.calculation_id}|{payload.agent_type}"
+        s = json.dumps(payload.model_dump(exclude={"request_id"}), sort_keys=True)
         return hashlib.sha256(s.encode("utf-8")).hexdigest()
 
     def check_or_register(self, request_id: str, payload: AgentRequest) -> tuple[dict | None, bool]:
         """Returns (cached_response, is_in_flight).
-        
+
         Raises HTTPException(409) if the same request_id is reused with different payload parameters.
         """
         payload_hash = self._hash_payload(payload)
@@ -70,10 +77,16 @@ class IdempotencyManager:
 
             # 2. Check if a request with this ID is currently being processed
             if request_id in self.in_flight:
+                if self.in_flight_hashes[request_id] != payload_hash:
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Idempotency conflict: request already in progress with different parameters.",
+                    )
                 return None, True
 
             # Register new in-flight execution
             self.in_flight[request_id] = threading.Event()
+            self.in_flight_hashes[request_id] = payload_hash
             return None, False
 
     def wait_for_in_flight(self, request_id: str, timeout: float = 25.0) -> dict | None:
@@ -95,6 +108,7 @@ class IdempotencyManager:
             if request_id in self.in_flight:
                 self.in_flight[request_id].set()
                 del self.in_flight[request_id]
+                self.in_flight_hashes.pop(request_id, None)
 
             self.cache[request_id] = {
                 "payload_hash": payload_hash,
@@ -109,6 +123,7 @@ class IdempotencyManager:
             if request_id in self.in_flight:
                 self.in_flight[request_id].set()
                 del self.in_flight[request_id]
+                self.in_flight_hashes.pop(request_id, None)
 
 
 _IDEMPOTENCY_MANAGER = IdempotencyManager()
@@ -133,7 +148,7 @@ OUT_OF_SCOPE_PATTERNS = (
 app = FastAPI(
     title="FasalBima Sathi API",
     description="PMFBY crop insurance assistant with rule lookup, LLM chat, Chroma RAG, and LangGraph agent.",
-    version="0.9.0",
+    version="0.11.0",
 )
 
 
@@ -159,29 +174,44 @@ class AskRequest(BaseModel):
 
 
 class AgentRequest(BaseModel):
+    language: Literal["en", "mr", "hi"] = "en"
     query: str | None = Field(default=None, description="Farmer query or calculation request")
     thread_id: str | None = Field(default=None, description="Session ID for stateful agent memory")
-    approved: bool | None = Field(default=None, description="Approval flag (true to confirm, false to cancel)")
-    calculation_id: str | None = Field(default=None, description="Pending calculation ID to bind approval")
+    approved: bool | None = Field(
+        default=None, description="Approval flag (true to confirm, false to cancel)"
+    )
+    calculation_id: str | None = Field(
+        default=None, description="Pending calculation ID to bind approval"
+    )
     request_id: str | None = Field(default=None, description="Client request ID for idempotency")
     agent_type: str = Field(
         default="langgraph",
         pattern="^(langgraph|handwritten)$",
         description="Agent implementation: 'langgraph' (with memory & approval) or 'handwritten'",
     )
-    max_iterations: int = Field(default=5, ge=1, le=10, description="Maximum reasoning/tool iterations")
+    max_iterations: int = Field(
+        default=5, ge=1, le=10, description="Maximum reasoning/tool iterations"
+    )
 
 
 class ClaimClockRequest(BaseModel):
-    loss_timestamp: str = Field(..., min_length=1, description="Date/time of calamity (e.g. 'YYYY-MM-DD HH:MM', 'yesterday at 9 pm')")
-    window_hours: int = Field(default=72, ge=1, le=168, description="Statutory intimation window (default 72 hours)")
+    loss_timestamp: str = Field(
+        ...,
+        min_length=1,
+        description="Date/time of calamity (e.g. 'YYYY-MM-DD HH:MM', 'yesterday at 9 pm')",
+    )
+    window_hours: int = Field(
+        default=72, ge=1, le=168, description="Statutory intimation window (default 72 hours)"
+    )
 
 
 class FeedbackRequest(BaseModel):
     thread_id: str = Field(..., min_length=1, description="Conversation session ID")
     response_id: str | None = Field(default=None, description="Assistant response ID being rated")
     query: str = Field(..., min_length=1, description="Farmer question")
-    rating: str = Field(..., pattern="^(up|down)$", description="Rating: 'up' (thumbs up) or 'down' (thumbs down)")
+    rating: str = Field(
+        ..., pattern="^(up|down)$", description="Rating: 'up' (thumbs up) or 'down' (thumbs down)"
+    )
     comment: str | None = Field(default=None, description="Optional farmer feedback comment")
 
 
@@ -341,6 +371,10 @@ def agent(
             waited_resp = _IDEMPOTENCY_MANAGER.wait_for_in_flight(req_id, timeout=25.0)
             if waited_resp is not None:
                 return waited_resp
+            raise HTTPException(
+                status_code=503,
+                detail="The original request is still running. Retry with the same request ID.",
+            )
 
     # 1. Reject empty or whitespace-only queries when approved is not passed
     if payload.query is not None and not payload.query.strip() and payload.approved is None:
@@ -352,7 +386,9 @@ def agent(
     if payload.query is None and payload.approved is None:
         if payload.request_id:
             _IDEMPOTENCY_MANAGER.release_on_error(payload.request_id)
-        raise HTTPException(status_code=400, detail="Either 'query' or 'approved' must be provided.")
+        raise HTTPException(
+            status_code=400, detail="Either 'query' or 'approved' must be provided."
+        )
 
     # 3. For approval/resume, require both thread_id AND calculation_id
     if payload.approved is not None:
@@ -390,11 +426,13 @@ def agent(
 
     try:
         result = run_langgraph_agent(
-            query=payload.query,
+            query=prepare_query(payload.query),
             thread_id=payload.thread_id,
             approved=payload.approved,
             calculation_id=payload.calculation_id,
+            language=payload.language,
         )
+        result = localize_result(result, payload.language)
         result["agent_type"] = "langgraph"
         if payload.request_id:
             _IDEMPOTENCY_MANAGER.store_response(payload.request_id, payload, result)
@@ -452,9 +490,15 @@ def submit_feedback(payload: FeedbackRequest):
         for idx, entry in enumerate(existing_entries):
             match_found = False
             if payload.response_id:
-                match_found = (entry.get("thread_id") == payload.thread_id and entry.get("response_id") == payload.response_id)
+                match_found = (
+                    entry.get("thread_id") == payload.thread_id
+                    and entry.get("response_id") == payload.response_id
+                )
             else:
-                match_found = (entry.get("thread_id") == payload.thread_id and entry.get("query") == payload.query)
+                match_found = (
+                    entry.get("thread_id") == payload.thread_id
+                    and entry.get("query") == payload.query
+                )
 
             if match_found:
                 existing_entries[idx] = new_entry
@@ -473,7 +517,9 @@ def submit_feedback(payload: FeedbackRequest):
 
 @app.get("/feedback")
 def list_feedback(
-    thread_id: str = Query(..., min_length=1, description="Session ID required to retrieve feedback records"),
+    thread_id: str = Query(
+        ..., min_length=1, description="Session ID required to retrieve feedback records"
+    ),
 ):
     """Retrieve collected feedback records for the specified session thread_id.
 
@@ -495,4 +541,3 @@ def list_feedback(
 
     entries = [e for e in entries if e.get("thread_id") == thread_id]
     return {"count": len(entries), "feedback": entries}
-

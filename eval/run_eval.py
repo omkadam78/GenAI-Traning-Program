@@ -5,10 +5,10 @@ Ensures:
 2. Evaluates retrieval relevance, answer correctness, citation support, refusal accuracy, and latency separately.
 3. Preserves historical keyword-based result (93.3%) with documented methodology comparison.
 """
+
 from __future__ import annotations
 
 import json
-import logging
 from pathlib import Path
 import sys
 import time
@@ -44,7 +44,9 @@ CONFIGS = [
 
 
 def evaluate_config(config: dict[str, Any], eval_items: list[dict]) -> dict[str, Any]:
-    print(f"\nEvaluating {config['name']} (chunk_size={config['chunk_size']}, top_k={config['top_k']})...")
+    print(
+        f"\nEvaluating {config['name']} (chunk_size={config['chunk_size']}, top_k={config['top_k']})..."
+    )
 
     # 1. Index isolated collection for this specific configuration
     chunks = get_all_chunks(
@@ -52,7 +54,9 @@ def evaluate_config(config: dict[str, Any], eval_items: list[dict]) -> dict[str,
         chunk_overlap=config["chunk_overlap"],
         include_full_pdfs=True,
     )
-    print(f"Generated {len(chunks)} chunks for {config['name']}. Ensuring Chroma index '{config['collection_name']}'...")
+    print(
+        f"Generated {len(chunks)} chunks for {config['name']}. Ensuring Chroma index '{config['collection_name']}'..."
+    )
     index_chunks(
         chunks=chunks,
         collection_name=config["collection_name"],
@@ -95,18 +99,18 @@ def evaluate_config(config: dict[str, Any], eval_items: list[dict]) -> dict[str,
         if not is_ans:
             total_unanswerable += 1
             is_refusal = (
-                not res.get("answered", True)
-                or "i don't know" in answer
-                or "don't know" in answer
+                not res.get("answered", True) or "i don't know" in answer or "don't know" in answer
             ) and res.get("confidence", 1.0) == 0.0
             if is_refusal:
                 refusal_correct += 1
-            item_results.append({
-                "id": qid,
-                "type": "unanswerable",
-                "passed": is_refusal,
-                "latency_ms": round(latency, 1),
-            })
+            item_results.append(
+                {
+                    "id": qid,
+                    "type": "unanswerable",
+                    "passed": is_refusal,
+                    "latency_ms": round(latency, 1),
+                }
+            )
         else:
             total_answerable += 1
             # 1. Evidence Support: verify retrieved chunks contain official PMFBY factual evidence
@@ -138,16 +142,18 @@ def evaluate_config(config: dict[str, Any], eval_items: list[dict]) -> dict[str,
             if citation_metadata_ok:
                 citation_valid += 1
 
-            item_results.append({
-                "id": qid,
-                "type": "answerable",
-                "retrieval_matched": matched_evidence,
-                "answer_matched": matched_answer,
-                "evidence_support_passed": has_evidence,
-                "heuristic_answer_passed": ans_hit,
-                "citation_completeness_passed": citation_metadata_ok,
-                "latency_ms": round(latency, 1),
-            })
+            item_results.append(
+                {
+                    "id": qid,
+                    "type": "answerable",
+                    "retrieval_matched": matched_evidence,
+                    "answer_matched": matched_answer,
+                    "evidence_support_passed": has_evidence,
+                    "heuristic_answer_passed": ans_hit,
+                    "citation_completeness_passed": citation_metadata_ok,
+                    "latency_ms": round(latency, 1),
+                }
+            )
 
     evidence_support = (retrieval_hits / total_answerable) * 100.0 if total_answerable else 0.0
     ans_accuracy = (answer_correct / total_answerable) * 100.0 if total_answerable else 0.0
@@ -184,7 +190,9 @@ def main():
     print("\n" + "=" * 105)
     print("           RAG CONFIGURATION COMPARISON SUMMARY (15 QUESTIONS)")
     print("=" * 105)
-    print(f"{'Configuration':<30} | {'Chunks':<6} | {'Evidence':<8} | {'Heuristic':<9} | {'Refusal':<8} | {'Citation':<8} | {'Overall':<8} | {'Latency'}")
+    print(
+        f"{'Configuration':<30} | {'Chunks':<6} | {'Evidence':<8} | {'Heuristic':<9} | {'Refusal':<8} | {'Citation':<8} | {'Overall':<8} | {'Latency'}"
+    )
     print("-" * 105)
     for r in results:
         print(
@@ -193,8 +201,13 @@ def main():
         )
     print("=" * 105)
 
-    winner = max(results, key=lambda x: (x["overall_accuracy_pct"], x["evidence_support_pct"], -x["avg_latency_ms"]))
-    print(f"\nWINNER: {winner['name']} with {winner['overall_accuracy_pct']}% overall verified accuracy!")
+    winner = max(
+        results,
+        key=lambda x: (x["overall_accuracy_pct"], x["evidence_support_pct"], -x["avg_latency_ms"]),
+    )
+    print(
+        f"\nWINNER: {winner['name']} with {winner['overall_accuracy_pct']}% overall verified accuracy!"
+    )
 
     md_table = [
         "### RAG Evaluation: 2 Configurations Comparison (Day 8 & Day 10 Re-verification)",
@@ -214,10 +227,12 @@ def main():
             f"{r['evidence_support_pct']}% | {r['heuristic_answer_accuracy_pct']}% | {r['refusal_rate_pct']}% | "
             f"{r['citation_completeness_pct']}% | {r['overall_accuracy_pct']}% | {r['avg_latency_ms']} ms | {status} |"
         )
-    md_table.extend([
-        "",
-        f"**Winner Analysis**: **{winner['name']}** maintains optimal chunk cohesion across operational guideline clauses, ensuring all multi-part criteria (such as post-harvest windows and localized calamity timelines) are retrieved in complete context.",
-    ])
+    md_table.extend(
+        [
+            "",
+            f"**Winner Analysis**: **{winner['name']}** maintains optimal chunk cohesion across operational guideline clauses, ensuring all multi-part criteria (such as post-harvest windows and localized calamity timelines) are retrieved in complete context.",
+        ]
+    )
 
     print("\nGenerated Markdown Table:\n")
     print("\n".join(md_table))

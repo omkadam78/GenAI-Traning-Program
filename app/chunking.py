@@ -1,4 +1,5 @@
 """Document chunking pipeline for FasalBima Sathi PMFBY documents."""
+
 from dataclasses import asdict, dataclass
 import json
 import logging
@@ -247,9 +248,10 @@ def main():
     print(f"Total chunks generated: {len(chunks)}")
     if chunks:
         sample = chunks[0]
-        print(f"Sample chunk: id={sample['id']}, source={sample['source']}, page={sample['page']}, title={sample['title']}")
+        print(
+            f"Sample chunk: id={sample['id']}, source={sample['source']}, page={sample['page']}, title={sample['title']}"
+        )
 
 
 if __name__ == "__main__":
     main()
-

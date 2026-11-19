@@ -8,3 +8,5 @@ data/chroma_db/
 data/chunks/
 data/feedback.jsonl
 data/feedback*.jsonl
+.ruff_cache/
+data/runtime/

@@ -7,6 +7,7 @@ Ensures:
 3. FASALBIMA_API_URL is automatically set so the UI always communicates with the matching backend port.
 4. Clean lifecycle management: terminating the launcher terminates both child processes without leaving stale ports.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -34,10 +35,13 @@ def is_port_in_use(port: int, host: str = "127.0.0.1") -> bool:
 def check_fasalbima_backend(url: str) -> bool:
     """Verify if a running server at url is an active FasalBima backend."""
     try:
-        req = urllib.request.Request(f"{url.rstrip('/')}/health", headers={"User-Agent": "FasalBima-Launcher"})
+        req = urllib.request.Request(
+            f"{url.rstrip('/')}/health", headers={"User-Agent": "FasalBima-Launcher"}
+        )
         with urllib.request.urlopen(req, timeout=1.5) as resp:
             if resp.status == 200:
                 import json
+
                 data = json.loads(resp.read().decode("utf-8"))
                 return data.get("product") == "FasalBima Sathi"
     except Exception:
@@ -68,7 +72,9 @@ def find_python_executable() -> str:
     return sys.executable
 
 
-def wait_for_backend(url: str, timeout: float = 30.0, process: subprocess.Popen | None = None) -> bool:
+def wait_for_backend(
+    url: str, timeout: float = 30.0, process: subprocess.Popen | None = None
+) -> bool:
     """Poll the backend health endpoint until it responds with HTTP 200 or timeout expires."""
     start_time = time.time()
     health_url = f"{url.rstrip('/')}/health"
@@ -76,7 +82,10 @@ def wait_for_backend(url: str, timeout: float = 30.0, process: subprocess.Popen 
 
     while time.time() - start_time < timeout:
         if process and process.poll() is not None:
-            print(f"\n[ERROR] Backend process exited unexpectedly with code {process.returncode}.", file=sys.stderr)
+            print(
+                f"\n[ERROR] Backend process exited unexpectedly with code {process.returncode}.",
+                file=sys.stderr,
+            )
             return False
 
         try:
@@ -107,8 +116,14 @@ def stop_process(proc: subprocess.Popen | None, name: str) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Start FasalBima Sathi backend and Streamlit UI consistently.")
-    parser.add_argument("--host", default=os.environ.get("HOST", "127.0.0.1"), help="Host to bind servers (default: 127.0.0.1)")
+    parser = argparse.ArgumentParser(
+        description="Start FasalBima Sathi backend and Streamlit UI consistently."
+    )
+    parser.add_argument(
+        "--host",
+        default=os.environ.get("HOST", "127.0.0.1"),
+        help="Host to bind servers (default: 127.0.0.1)",
+    )
     parser.add_argument(
         "--backend-port",
         type=int,
@@ -118,12 +133,24 @@ def main() -> int:
     parser.add_argument(
         "--ui-port",
         type=int,
-        default=int(os.environ.get("FASALBIMA_UI_PORT", os.environ.get("STREAMLIT_SERVER_PORT", "8501"))),
+        default=int(
+            os.environ.get("FASALBIMA_UI_PORT", os.environ.get("STREAMLIT_SERVER_PORT", "8501"))
+        ),
         help="Streamlit UI port (default: 8501)",
     )
-    parser.add_argument("--headless", action="store_true", help="Run Streamlit in headless mode without opening a browser window")
-    parser.add_argument("--backend-only", action="store_true", help="Start only the FastAPI backend server")
-    parser.add_argument("--ui-only", action="store_true", help="Start only the Streamlit UI (assumes backend is running)")
+    parser.add_argument(
+        "--headless",
+        action="store_true",
+        help="Run Streamlit in headless mode without opening a browser window",
+    )
+    parser.add_argument(
+        "--backend-only", action="store_true", help="Start only the FastAPI backend server"
+    )
+    parser.add_argument(
+        "--ui-only",
+        action="store_true",
+        help="Start only the Streamlit UI (assumes backend is running)",
+    )
 
     args = parser.parse_args()
 
@@ -162,7 +189,10 @@ def main() -> int:
     if not args.ui_only:
         if is_port_in_use(args.backend_port, args.host):
             if check_fasalbima_backend(backend_url):
-                print(f"[INFO] Found already running FasalBima backend at {backend_url}. Reusing it.", flush=True)
+                print(
+                    f"[INFO] Found already running FasalBima backend at {backend_url}. Reusing it.",
+                    flush=True,
+                )
             else:
                 print(
                     f"[ERROR] Port {args.backend_port} is already in use by another application.\n"
@@ -186,7 +216,10 @@ def main() -> int:
 
             # Wait for backend readiness probe
             if not wait_for_backend(backend_url, timeout=25.0, process=backend_proc):
-                print(f"[ERROR] Backend failed to become healthy at {backend_url}/health within timeout.", file=sys.stderr)
+                print(
+                    f"[ERROR] Backend failed to become healthy at {backend_url}/health within timeout.",
+                    file=sys.stderr,
+                )
                 return 1
             print(f"Backend is healthy at {backend_url}", flush=True)
 
@@ -229,7 +262,7 @@ def main() -> int:
     print(f"Starting Streamlit Farmer UI at {app_url}...", flush=True)
     ui_proc = subprocess.Popen(streamlit_cmd, cwd=str(ROOT), env=env)
 
-    print(f"\nFasalBima Sathi is live!")
+    print("\nFasalBima Sathi is live!")
     print(f"- Web UI:  {app_url}")
     print(f"- Backend: {backend_url}")
     print("Press Ctrl+C to stop all services.\n", flush=True)
@@ -238,7 +271,9 @@ def main() -> int:
         # Keep launcher running until interrupted or child exits
         while True:
             if backend_proc and backend_proc.poll() is not None:
-                print(f"[ERROR] Backend exited with code {backend_proc.returncode}.", file=sys.stderr)
+                print(
+                    f"[ERROR] Backend exited with code {backend_proc.returncode}.", file=sys.stderr
+                )
                 break
             if ui_proc and ui_proc.poll() is not None:
                 print(f"[INFO] Streamlit UI closed with code {ui_proc.returncode}.")

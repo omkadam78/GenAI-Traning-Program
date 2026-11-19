@@ -9,6 +9,7 @@ Features:
 6. Honest tracking of provider_used, model_used, fallback_occurred, latency_ms, and token usage.
 7. Explicit separation of real LLM responses from deterministic rule-engine outputs.
 """
+
 from __future__ import annotations
 
 import json
@@ -19,7 +20,7 @@ import re
 import time
 from typing import Any, Optional
 
-from dotenv import dotenv_values, load_dotenv
+from dotenv import dotenv_values
 import requests
 
 from app.records import load_records
@@ -51,26 +52,31 @@ OUT_OF_SCOPE_PATTERNS = (
 
 class LLMError(Exception):
     """Base exception for LLM provider errors."""
+
     pass
 
 
 class LLMAuthenticationError(LLMError):
     """Raised when provider credentials are rejected (401/403)."""
+
     pass
 
 
 class LLMModelNotFoundError(LLMError):
     """Raised when requested model is deprecated or unsupported (404)."""
+
     pass
 
 
 class LLMRateLimitError(LLMError):
     """Raised when provider rate limits are exhausted (429)."""
+
     pass
 
 
 class LLMTimeoutError(LLMError):
     """Raised when provider requests time out."""
+
     pass
 
 
@@ -89,7 +95,7 @@ def is_personal_claim_query(question: str) -> bool:
 
 def get_llm_config() -> dict[str, Any]:
     """Load current LLM configuration and detect primary/fallback providers.
-    
+
     Reads dynamically from environment to allow runtime key injection.
     """
     settings = {**dotenv_values(ROOT / ".env"), **os.environ}
@@ -218,7 +224,7 @@ def _call_groq_api(
                     except Exception:
                         pass
                 else:
-                    retry_after = (2 ** attempt) * 0.5
+                    retry_after = (2**attempt) * 0.5
 
                 if attempt < max_retries:
                     time.sleep(retry_after)
@@ -233,16 +239,16 @@ def _call_groq_api(
             # Other non-retryable 4xx
             raise LLMError(f"Groq API request failed with HTTP {status}: {resp.text}")
 
-        except requests.exceptions.Timeout as exc:
+        except requests.exceptions.Timeout:
             last_error = LLMTimeoutError(f"Groq API request timed out after {timeout}s.")
             if attempt < max_retries:
-                time.sleep((2 ** attempt) * 0.5)
+                time.sleep((2**attempt) * 0.5)
                 continue
             raise last_error
-        except requests.exceptions.ConnectionError as exc:
+        except requests.exceptions.ConnectionError:
             last_error = LLMError("Groq network connection failed.")
             if attempt < max_retries:
-                time.sleep((2 ** attempt) * 0.5)
+                time.sleep((2**attempt) * 0.5)
                 continue
             raise last_error
 
@@ -310,7 +316,7 @@ def _call_gemini_api(
 
             # Retryable status codes (429 rate limit, 500, 503)
             if status in (429, 500, 503):
-                retry_after = (2 ** attempt) * 0.5
+                retry_after = (2**attempt) * 0.5
                 if attempt < max_retries:
                     time.sleep(retry_after)
                     continue
@@ -325,13 +331,13 @@ def _call_gemini_api(
         except requests.exceptions.Timeout:
             last_error = LLMTimeoutError(f"Gemini API request timed out after {timeout}s.")
             if attempt < max_retries:
-                time.sleep((2 ** attempt) * 0.5)
+                time.sleep((2**attempt) * 0.5)
                 continue
             raise last_error
-        except requests.exceptions.ConnectionError as exc:
+        except requests.exceptions.ConnectionError:
             last_error = LLMError("Gemini network connection failed.")
             if attempt < max_retries:
-                time.sleep((2 ** attempt) * 0.5)
+                time.sleep((2**attempt) * 0.5)
                 continue
             raise last_error
 
@@ -421,10 +427,22 @@ def _offline_fallback(question: str, matches: list[dict], prompt_version: str) -
     # Pure arithmetic calculation grounding if query requests financial parameters
     q_low = question.lower()
     area_m = re.search(r"(\d+(?:\.\d+)?)\s*(?:ha|hectares?)", q_low)
-    sof_m = re.search(r"(?:rs\.?|inr|₹)?\s*(\d{1,3}(?:,\d{3})*|\d{4,6})\s*(?:per\s+ha|/ha|sof)?", q_low)
-    if area_m and sof_m and ("premium" in q_low or "sum insured" in q_low or "scale of finance" in q_low or "hailstorm" in q_low):
+    sof_m = re.search(
+        r"(?:rs\.?|inr|₹)?\s*(\d{1,3}(?:,\d{3})*|\d{4,6})\s*(?:per\s+ha|/ha|sof)?", q_low
+    )
+    if (
+        area_m
+        and sof_m
+        and (
+            "premium" in q_low
+            or "sum insured" in q_low
+            or "scale of finance" in q_low
+            or "hailstorm" in q_low
+        )
+    ):
         try:
             from app.tools import pmfby_premium
+
             area_val = float(area_m.group(1))
             sof_val = float(sof_m.group(1).replace(",", ""))
             crop_name = "soybean" if "soybean" in q_low else ("wheat" if "wheat" in q_low else None)
@@ -450,9 +468,10 @@ def generate_chat_response(
     top_k: int = 3,
     context_records: list[dict] | None = None,
     allow_offline_fallback: bool = True,
+    answer_language: str = "en",
 ) -> dict[str, Any]:
     """Generate a structured PMFBY answer grounded in retrieved context using Groq or Gemini.
-    
+
     If real LLM keys are configured, executes real LLM inference with bounded retries and
     automatic secondary-provider fallback.
     """
@@ -477,11 +496,21 @@ def generate_chat_response(
 
     records = context_records if context_records is not None else load_records()
     # Preserve evidence order so [1], [2], ... identify the same sources the UI shows.
-    matches = list(records[:top_k]) if context_records is not None else smart_search(records, question, top_k=top_k)
+    matches = (
+        list(records[:top_k])
+        if context_records is not None
+        else smart_search(records, question, top_k=top_k)
+    )
     if not matches:
-        return {"answer": "I don't know. I could not find supporting information in the official documents. Please ask a more specific PMFBY question.",
-                "confidence": 0.0, "follow_up": "Which crop, season or insurance rule would you like help with?",
-                "citations": [], "provider": "evidence-guard", "model": "none", "fallback_occurred": False}
+        return {
+            "answer": "I don't know. I could not find supporting information in the official documents. Please ask a more specific PMFBY question.",
+            "confidence": 0.0,
+            "follow_up": "Which crop, season or insurance rule would you like help with?",
+            "citations": [],
+            "provider": "evidence-guard",
+            "model": "none",
+            "fallback_occurred": False,
+        }
 
     # Citations metadata
     citations = [
@@ -507,6 +536,10 @@ def generate_chat_response(
 
     # Load prompts
     system_prompt = load_prompt_file(SYSTEM_PROMPT_PATH)
+    language_name = {"en": "English", "mr": "Marathi", "hi": "Hindi"}.get(
+        answer_language, "English"
+    )
+    system_prompt += f"\nWrite the answer and follow_up in {language_name}. Keep numbers, citations, units and guideline versions unchanged. Use simple farmer-friendly words."
     task_template = load_prompt_file(PROMPT_V1_PATH if prompt_version == "v1" else PROMPT_V2_PATH)
     user_prompt = task_template.replace("{context}", context_str).replace("{question}", question)
 
@@ -515,7 +548,9 @@ def generate_chat_response(
 
     if mode == "offline":
         if not allow_offline_fallback:
-            raise LLMError("The answer service is not configured for live AI. Please ask the project administrator to check the API configuration.")
+            raise LLMError(
+                "The answer service is not configured for live AI. Please ask the project administrator to check the API configuration."
+            )
         result = _offline_fallback(question, matches, prompt_version)
         return {
             "answer": result["answer"],
@@ -597,7 +632,9 @@ def generate_chat_response(
             # Both failed
 
     if not allow_offline_fallback:
-        raise LLMError("The AI answer service is temporarily unavailable. Please try again shortly. Your question was not answered by an offline substitute.")
+        raise LLMError(
+            "The AI answer service is temporarily unavailable. Please try again shortly. Your question was not answered by an offline substitute."
+        )
 
     # Fallback to offline rule engine if live LLM is completely unavailable,
     # but HONESTLY identify provider as deterministic-rule-engine

@@ -1,4 +1,5 @@
 """Download official PMFBY sources to data/raw/ and write a manifest."""
+
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -50,9 +51,7 @@ def main():
             logging.warning("Could not download %s: %s", url, exc)
 
     manifest = build_manifest(RAW)
-    MANIFEST_FILE.write_text(
-        json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    MANIFEST_FILE.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     logging.info("Wrote manifest with %s entries to %s", len(manifest), MANIFEST_FILE)
 
 

@@ -1,5 +1,7 @@
 """Dataclass model for one PMFBY knowledge record."""
+
 from dataclasses import dataclass
+
 
 @dataclass
 class Record:

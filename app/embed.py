@@ -1,5 +1,5 @@
 """Embedding utilities and semantic search for FasalBima Sathi."""
-import json
+
 import logging
 from pathlib import Path
 from typing import Any
@@ -64,6 +64,7 @@ class EmbeddingEngine:
     def _init_model(self):
         try:
             from sentence_transformers import SentenceTransformer
+
             # Try to load local/cached model without hanging on remote timeout
             self.st_model = SentenceTransformer(self.model_name)
             logging.info("Loaded SentenceTransformer model: %s", self.model_name)
@@ -74,7 +75,9 @@ class EmbeddingEngine:
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
         if self.st_model is not None:
             try:
-                embeddings = self.st_model.encode(texts, convert_to_numpy=True, normalize_embeddings=True)
+                embeddings = self.st_model.encode(
+                    texts, convert_to_numpy=True, normalize_embeddings=True
+                )
                 return embeddings.tolist()
             except Exception as exc:
                 logging.warning("SentenceTransformer encode failed (%s); using fallback.", exc)
@@ -135,4 +138,3 @@ def semantic_search_chunks(
         results.append(item)
 
     return results
-

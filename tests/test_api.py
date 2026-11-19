@@ -1,4 +1,5 @@
 """Tests for Day 3 ingestion, Day 4 API, Day 5 questions, Day 6 LLM, Day 7 Semantic Search, and Day 8 RAG."""
+
 import json
 from pathlib import Path
 
@@ -8,7 +9,6 @@ from analysis.explore import analyze_records
 from app.chunking import get_all_chunks
 from app.ingest import extract_records
 from app.main import app
-from app.rag import ask_rag
 from app.records import load_records
 from app.smart_search import smart_search
 from app.vectorstore import query_semantic
@@ -38,7 +38,10 @@ def test_smart_search_ranks_hailstorm_and_premium():
     hail_hits = smart_search(records, "hailstorm individual farm", top_k=3)
     assert hail_hits
     assert hail_hits[0]["score"] > 0
-    assert any("hailstorm" in r["rule_text"].lower() or "hailstorm" in r["rule_topic"].lower() for r in hail_hits)
+    assert any(
+        "hailstorm" in r["rule_text"].lower() or "hailstorm" in r["rule_topic"].lower()
+        for r in hail_hits
+    )
 
     prem_hits = smart_search(records, "kharif soybean oilseed premium", top_k=3)
     assert prem_hits
@@ -208,7 +211,10 @@ def test_day8_rag_ask_and_eval_suite():
     # Test POST /ask on an answerable question
     res_ans = client.post(
         "/ask",
-        json={"question": "What premium do I pay for soybean crop insurance in kharif?", "top_k": 3},
+        json={
+            "question": "What premium do I pay for soybean crop insurance in kharif?",
+            "top_k": 3,
+        },
     )
     assert res_ans.status_code == 200
     body = res_ans.json()
@@ -233,7 +239,10 @@ def test_day8_rag_ask_and_eval_suite():
     # Test POST /ask strictly refuses Q15 (bank account inquiry)
     res_q15 = client.post(
         "/ask",
-        json={"question": "Can you check if my compensation payment has reached my State Bank of India account?", "top_k": 3},
+        json={
+            "question": "Can you check if my compensation payment has reached my State Bank of India account?",
+            "top_k": 3,
+        },
     )
     assert res_q15.status_code == 200
     assert res_q15.json()["answered"] is False
@@ -306,7 +315,9 @@ def test_day9_langgraph_memory_and_approval_step():
     from app.graph import run_langgraph_agent
 
     thread_id = "pytest_farmer_session_99"
-    calc_query = "Please calculate PMFBY premium for 1.2 ha soybean with scale of finance Rs 49,000 per ha"
+    calc_query = (
+        "Please calculate PMFBY premium for 1.2 ha soybean with scale of finance Rs 49,000 per ha"
+    )
 
     # Turn 1: Submit query without approval -> must halt and require approval
     t1 = run_langgraph_agent(query=calc_query, thread_id=thread_id)
@@ -322,13 +333,18 @@ def test_day9_langgraph_memory_and_approval_step():
     assert "1,176" in t2["answer"] or "1176" in t2["answer"]
 
     # Test general knowledge query does not require approval
-    t_kb = run_langgraph_agent(query="What is the claim intimation timeline for localized calamities?", thread_id="kb_thread")
+    t_kb = run_langgraph_agent(
+        query="What is the claim intimation timeline for localized calamities?",
+        thread_id="kb_thread",
+    )
     assert t_kb["status"] == "completed"
     assert t_kb["requires_approval"] is False
     assert len(t_kb["answer"]) > 10
 
     # Test Q6 refusal in LangGraph
-    t_ref = run_langgraph_agent(query="Has my PMFBY claim for kharif 2025 been approved?", thread_id="ref_thread")
+    t_ref = run_langgraph_agent(
+        query="Has my PMFBY claim for kharif 2025 been approved?", thread_id="ref_thread"
+    )
     assert t_ref["status"] == "completed"
     assert "i don't know" in t_ref["answer"].lower()
     assert t_ref["confidence"] == 0.0
@@ -391,4 +407,3 @@ def test_day9_api_agent_endpoint():
     )
     assert res_q6.status_code == 200
     assert "i don't know" in res_q6.json()["answer"].lower()
-

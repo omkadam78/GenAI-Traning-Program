@@ -1,4 +1,5 @@
 """Parse downloaded PMFBY documents in data/raw/ and export normalized JSON."""
+
 from dataclasses import asdict
 import json
 import logging
@@ -176,7 +177,9 @@ def extract_records() -> list[dict]:
         ),
         (
             "General exclusions",
-            lambda: _extract_snippet(revamped_pages, 13, "5.4 General Exclusions:", "5.5 Loss/damage"),
+            lambda: _extract_snippet(
+                revamped_pages, 13, "5.4 General Exclusions:", "5.5 Loss/damage"
+            ),
             "Revamped OG (Kharif 2020), Para 5.4",
             "All PMFBY policies",
             "War, nuclear risks, malicious damage, preventable risks excluded",
@@ -184,12 +187,14 @@ def extract_records() -> list[dict]:
         ),
         (
             "Kharif foodgrain and oilseed premium cap",
-            lambda: "Maximum Premium Rate payable by farmer (% of Sum Insured): "
-            + _extract_snippet(
-                revamped_pages,
-                30,
-                "Kharif All Food grain and Oilseeds crops",
-                "Rabi All Food grain",
+            lambda: (
+                "Maximum Premium Rate payable by farmer (% of Sum Insured): "
+                + _extract_snippet(
+                    revamped_pages,
+                    30,
+                    "Kharif All Food grain and Oilseeds crops",
+                    "Rabi All Food grain",
+                )
             ),
             "Revamped OG (Kharif 2020), Para 13.1 Table 1",
             "Kharif cereals, millets, pulses, and oilseeds (e.g. soybean)",
@@ -198,12 +203,14 @@ def extract_records() -> list[dict]:
         ),
         (
             "Rabi foodgrain and oilseed premium cap",
-            lambda: "Maximum Premium Rate payable by farmer (% of Sum Insured): "
-            + _extract_snippet(
-                revamped_pages,
-                30,
-                "Rabi All Food grain and Oilseeds crops",
-                "Kharif and Rabi Annual Commercial",
+            lambda: (
+                "Maximum Premium Rate payable by farmer (% of Sum Insured): "
+                + _extract_snippet(
+                    revamped_pages,
+                    30,
+                    "Rabi All Food grain and Oilseeds crops",
+                    "Kharif and Rabi Annual Commercial",
+                )
             ),
             "Revamped OG (Kharif 2020), Para 13.1 Table 1",
             "Rabi cereals, millets, pulses, and oilseeds (e.g. wheat, gram)",
@@ -212,12 +219,14 @@ def extract_records() -> list[dict]:
         ),
         (
             "Commercial and horticultural premium cap",
-            lambda: "Maximum Premium Rate payable by farmer (% of Sum Insured): "
-            + _extract_snippet(
-                revamped_pages,
-                30,
-                "Annual Commercial/ Annual Horticultural crops",
-                "* Premium paid",
+            lambda: (
+                "Maximum Premium Rate payable by farmer (% of Sum Insured): "
+                + _extract_snippet(
+                    revamped_pages,
+                    30,
+                    "Annual Commercial/ Annual Horticultural crops",
+                    "* Premium paid",
+                )
             ),
             "Revamped OG (Kharif 2020), Para 13.1 Table 1",
             "Kharif and Rabi annual commercial/horticultural crops (e.g. cotton)",
@@ -242,7 +251,9 @@ def extract_records() -> list[dict]:
         ),
         (
             "Loss reporting channels",
-            lambda: _extract_snippet(revamped_pages, 74, "21.5.4.2 Channel of reporting", "21.5.4.3"),
+            lambda: _extract_snippet(
+                revamped_pages, 74, "21.5.4.2 Channel of reporting", "21.5.4.3"
+            ),
             "Revamped OG (Kharif 2020), Para 21.5.4.2",
             "Farmers reporting localized calamity or post-harvest loss",
             "Crop Insurance App, Centralized Toll-Free (14447), insurer, bank, agri office",
@@ -285,7 +296,9 @@ def extract_records() -> list[dict]:
             lambda: (
                 "Earlier 2016 Operational Guidelines required 48-hour farmer loss intimation, "
                 "which was expanded to 72 hours for farmers in Revised & Revamped OGs while retaining 48 hours for bank/official forwarding: "
-                + _extract_snippet(revised_pages, 51, "21.4.3.2 Channel of reporting", "First mode", 220)
+                + _extract_snippet(
+                    revised_pages, 51, "21.4.3.2 Channel of reporting", "First mode", 220
+                )
             ),
             "Revised OG (Para 21.4.3.2) vs 2016 OG & Revamped OG (Para 21.5.4.2)",
             "Comparing 2016 48-hour rule against current 72-hour farmer rule",
@@ -328,9 +341,7 @@ def extract_records() -> list[dict]:
 def main():
     logging.basicConfig(level=logging.INFO)
     records = extract_records()
-    OUT_FILE.write_text(
-        json.dumps(records, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    OUT_FILE.write_text(json.dumps(records, ensure_ascii=False, indent=2), encoding="utf-8")
     logging.info("Parsed and saved %s records from data/raw/ to %s", len(records), OUT_FILE)
 
 

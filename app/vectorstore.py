@@ -1,5 +1,5 @@
 """Persistent Chroma vectorstore indexing and semantic querying for FasalBima Sathi."""
-import json
+
 import logging
 from pathlib import Path
 from typing import Any
@@ -69,7 +69,9 @@ def index_chunks(
 
     existing_count = collection.count()
     if existing_count > 0 and not force_rebuild:
-        logging.info("Chroma collection '%s' already contains %s chunks.", collection_name, existing_count)
+        logging.info(
+            "Chroma collection '%s' already contains %s chunks.", collection_name, existing_count
+        )
         return existing_count
 
     if chunks is None:
@@ -98,7 +100,9 @@ def index_chunks(
         )
 
     indexed = collection.count()
-    logging.info("Indexing complete! Total records in collection '%s': %s", collection_name, indexed)
+    logging.info(
+        "Indexing complete! Total records in collection '%s': %s", collection_name, indexed
+    )
     return indexed
 
 
@@ -166,4 +170,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
