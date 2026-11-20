@@ -1,6 +1,33 @@
+---
+title: FasalBima Sathi
+emoji: 🌾
+colorFrom: green
+colorTo: yellow
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # FasalBima Sathi
 
+[![CI](https://github.com/omkadam78/GenAI-Traning-Program/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/omkadam78/GenAI-Traning-Program/actions/workflows/ci.yml)
+
 An AI-powered assistant for the Pradhan Mantri Fasal Bima Yojana (PMFBY).
+
+## Day 12: CI and live deployment
+
+[CI runs and evidence](https://github.com/omkadam78/GenAI-Traning-Program/actions/workflows/ci.yml)
+· [Feature-branch pull requests](https://github.com/omkadam78/GenAI-Traning-Program/pulls?q=is%3Apr)
+
+CI runs Ruff lint/format, pytest with fake LLMs and a real Docker build.
+The container smoke check exercises health, UI, WebSocket upgrade, records and Q6
+refusal. JUnit XML, smoke results and startup logs are workflow artifacts. Actions
+are pinned to verified commit SHAs with read-only permissions; PR checks use no
+LLM secrets. A badge reports actual status, not an assumed green result.
+
+**Public deployment pending account connection. No live URL is claimed yet.**
+The image serves UI at `/`, public health at `/health` and API under `/api/` on
+one port. See [hosting instructions](docs/deployment.md).
 
 ## Day 11: quality, Docker and a farmer-friendly interface
 

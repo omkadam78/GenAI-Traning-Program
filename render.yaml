@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: fasalbima-sathi
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: PORT
+        value: '7860'
+      - key: LLM_PROVIDER
+        value: groq
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-20b
+      - key: FASALBIMA_FEEDBACK_FILE
+        value: /tmp/fasalbima-feedback.jsonl
