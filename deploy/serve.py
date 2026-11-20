@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import http.client
 import os
 from pathlib import Path
 import signal
@@ -62,7 +63,7 @@ def wait_ready(url: str, children: list[subprocess.Popen], timeout: float = 90) 
             with urlopen(url, timeout=2) as response:
                 if response.status == 200:
                     return
-        except (URLError, TimeoutError):
+        except (URLError, TimeoutError, OSError, http.client.HTTPException):
             pass
         time.sleep(0.5)
     raise RuntimeError(f"Service did not become ready: {url}")

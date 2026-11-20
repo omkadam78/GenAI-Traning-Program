@@ -52,7 +52,7 @@ def check(base_url: str, timeout: float = 120) -> dict:
             assert health["product"] == "FasalBima Sathi"
             assert health["records_count"] >= 20
             break
-        except (URLError, TimeoutError):
+        except (URLError, TimeoutError, OSError, http.client.HTTPException):
             if time.monotonic() >= deadline:
                 raise
             time.sleep(1)
