@@ -25,7 +25,20 @@ refusal. JUnit XML, smoke results and startup logs are workflow artifacts. Actio
 are pinned to verified commit SHAs with read-only permissions; PR checks use no
 LLM secrets. A badge reports actual status, not an assumed green result.
 
-**Public deployment pending account connection. No live URL is claimed yet.**
+**Live app:** https://fasalbima-sathi.onrender.com
+
+**Public health:** https://fasalbima-sathi.onrender.com/health
+
+Verified on 20 November 2026: public health, UI, WebSocket connection, records,
+mandatory Q6 refusal, and real Groq answers with official citations. Render uses
+the free plan in Singapore and deploys only after CI checks pass. The API key is
+stored privately in Render, never in this repository.
+
+[Required merged PR #1](https://github.com/omkadam78/GenAI-Traning-Program/pull/1)
+· [Successful main CI](https://github.com/omkadam78/GenAI-Traning-Program/actions/runs/44707632275)
+
+Free hosting can sleep after inactivity. Conversation state resets on restart and
+feedback storage is ephemeral. First requests after sleep can take longer.
 The image serves UI at `/`, public health at `/health` and API under `/api/` on
 one port. See [hosting instructions](docs/deployment.md).
 
@@ -76,9 +89,11 @@ docker compose run --rm --no-deps api python -m ruff check .
 docker compose down
 ```
 
-**Verification limit:** Compose configuration validates. Docker Desktop/engine is
-not installed on the verification machine, so image build, container startup and
-container-based tests remain unverified. See [Day 11 verification](docs/day11_verification.md).
+**Day 12 verification:** GitHub's Linux CI built the Docker image and verified both
+single-port container startup and separate Compose API/UI services. The 82-test
+pytest suite passed in the Linux CI quality job. Docker remains unavailable on
+the local Windows machine. [Day 11 verification](docs/day11_verification.md) is the
+historical record before these CI checks.
 
 ### Run locally and check quality
 
@@ -94,7 +109,7 @@ python -m ruff format --check .
 The launcher starts a matching API/UI pair. Custom ports are supported with
 `python run.py --backend-port 8050 --ui-port 8550`. The current local verification
 uses **http://127.0.0.1:8550**. Tests run offline with fake LLM responses and isolated
-feedback storage. Result: **76 passed**; Ruff lint and formatting pass.
+feedback storage. Result: **82 passed**; Ruff lint and formatting pass.
 
 ## Problem
 Farmers often face difficulty understanding crop insurance guidelines, premium calculations, claim procedures, and statutory deadlines (such as the 72-hour localized calamity intimation window).
@@ -118,7 +133,7 @@ Farmers often face difficulty understanding crop insurance guidelines, premium c
 
 ---
 
-## Current Progress (Days 1–11)
+## Current Progress (Days 1–12)
 - **Day 1**: Python intro (`day01_intro.py`) and interactive menu (`day01_menu.py`).
 - **Day 2**: 20 starter PMFBY records (`data/sample_records.py`), reusable record utilities (`app/records.py`), and terminal CLI (`app/cli.py`).
 - **Day 3**: Official source downloader with manifest (`app/fetch.py`), `Record` dataclass (`app/models.py`), and PDF/HTML ingestion pipeline (`app/ingest.py` -> `data/records.json`).
@@ -130,6 +145,7 @@ Farmers often face difficulty understanding crop insurance guidelines, premium c
 - **Day 9**: Agent tools (`app/tools.py` with pure arithmetic `pmfby_premium`, `pmfby_knowledge_search`, and `pmfby_claim_deadline_check`), hand-written ReAct loop (`app/agent_loop.py`), stateful LangGraph agent with native `interrupt()` and `Command(resume=...)` approval pause (`app/graph.py`), and unified `POST /agent` endpoint.
 - **Day 10 (Checkpoint 2)**: Streamlit interface, live 72-hour clock, calculation approval, official citations and scoped feedback.
 - **Day 11**: Offline pytest coverage, Ruff lint/format configuration, Dockerfile and Compose services, documented run commands, and English/Marathi/Hindi farmer interface with custom branding and reporting checklist.
+- **Day 12**: Green Ruff/pytest/Docker CI, feature-branch PR #1 merged after checks, and a verified live Render deployment with public health and real Groq answers. Container and Compose startup evidence is retained in CI artifacts.
 
 ---
 
