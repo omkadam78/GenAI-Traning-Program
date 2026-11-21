@@ -1,0 +1,29 @@
+1. Crop insurance, made clearer
+Crop insurance can feel complicated, especially when you're already worried about your harvest. That's where Fasal Bima Sathi comes in. It helps you understand the rules, estimate what you may pay, and prepare to report crop damage.
+
+2. Start with your question
+Start with a question you'd actually ask. For example, what does my crop insurance cover? Or, how much premium might I pay? The app brings together information from official crop insurance documents, so you don't have to search through long guidelines yourself.
+
+3. Check the official evidence
+For knowledge answers, you can open the official sources and check the supporting document and page references. And there's an important boundary: the app can't look up your personal claim status or bank payment. It should tell you that, rather than make up an answer.
+
+4. Estimate your premium
+Now, let's look at a premium estimate. Choose your crop and growing season, enter your land area, and use the scale of finance from your bank or notified crop details. Check the area and finance units carefully. That keeps the estimate meaningful.
+
+5. You confirm the details
+Before anything is calculated, you get a chance to review the details. If something looks wrong, cancel and correct it. When you're ready, confirm. This only calculates an estimate. It doesn't buy insurance, take a payment, or submit a claim.
+
+6. A clear, calculated result
+Here's our soybean example: one point two hectares, with finance of forty nine thousand rupees per hectare. The result is fifty eight thousand eight hundred rupees of cover, and a maximum estimated premium of one thousand one hundred seventy six rupees. Python performs this arithmetic. The actual premium can be lower.
+
+7. Know when to report a loss
+If your crop is damaged, the reporting section helps you work out a deadline from the actual date and time of the loss. For the localized calamity and post harvest cases covered by the cited guidelines, it uses a seventy two hour window and shows a live countdown. Contact your insurer promptly; don't wait for the app.
+
+8. Prepare before you report
+There's also a checklist: your crop and field location, when the damage happened, your policy reference, and photos if it's safe to take them. You can download a reporting note to keep the details together. It's a preparation aid, not a submitted claim. Keep the acknowledgement from your insurer or bank.
+
+9. Use the language you prefer
+You can switch between English, Marathi, and Hindi. That makes the main actions easier to follow in the language you prefer. You can also rate an answer with a thumbs up or thumbs down. Starting a new conversation clears the current discussion when you want a fresh start.
+
+10. Guidance you can check
+The aim is simple: clearer information, a transparent estimate, and useful next steps when time matters. This is independent guidance. Your insurer and state decide coverage and claims. Never enter an Aadhaar number, bank account details, or an OTP. Use the official sources, and confirm important decisions with your insurer.

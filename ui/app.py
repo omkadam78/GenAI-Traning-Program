@@ -108,7 +108,11 @@ def accept_result(result, question):
     st.session_state.messages.append(
         dict(
             role="assistant",
-            content=result.get("answer", ""),
+            content=(
+                t("Check the details below, then confirm or cancel the estimate.")
+                if result.get("requires_approval")
+                else result.get("answer", "")
+            ),
             response_id=result.get("response_id", uuid.uuid4().hex),
             query=question,
             citations=result.get("citations", []),

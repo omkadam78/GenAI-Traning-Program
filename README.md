@@ -12,7 +12,62 @@ pinned: false
 
 [![CI](https://github.com/omkadam78/GenAI-Traning-Program/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/omkadam78/GenAI-Traning-Program/actions/workflows/ci.yml)
 
-An AI-powered assistant for the Pradhan Mantri Fasal Bima Yojana (PMFBY).
+Crop insurance guidance farmers can understand: ask in English, Marathi or Hindi,
+review a premium estimate, and prepare to report crop loss using official PMFBY sources.
+
+## Day 13: production safeguards and measured results
+
+[Watch the narrated farmer demo on Google Drive](https://drive.google.com/file/d/1SqBRUVHGCP8iX5eNJeH-B5WiEgFAyB5a/view)
+· [Repository video](docs/demo.mp4) · [Demo details and transcript](docs/demo.md)
+· [Production notes](docs/production_notes.md) · [Resume bullets](docs/resume.md)
+
+```mermaid
+flowchart TD
+    F[Farmer: English / Marathi / Hindi] --> U[Streamlit: ask, estimate, report loss]
+    U --> A[FastAPI: input limits and request metrics]
+    A --> G[LangGraph routing and conversation memory]
+    G --> R[Official document retrieval and evidence filtering]
+    R --> C[Conversation-scoped answer cache]
+    C -->|miss| L[Groq / Gemini grounded synthesis]
+    L --> V[Output checks and citations]
+    C -->|hit| V
+    G --> P[Explicit confirmation then Python premium tool]
+    G --> D[Python reporting deadline tool]
+    V --> U
+    P --> U
+    D --> U
+```
+
+### Production notes
+
+Five exact-repeat question pairs measured locally with real retrieval and live Groq
+on 21 November 2026; different request IDs, same conversation within each pair.
+
+| Result | Measured value |
+|---|---:|
+| Passing repeat pairs | 5/5 |
+| Median initial / cached request | 1,747.70 / 376.53 ms |
+| Reduction between medians | 78.46% |
+| Initial requests' reported tokens | 12,184 |
+| Cached repeats' new provider calls / tokens | 0 / 0 |
+| Offline automated tests | 120 passed |
+
+These are local TestClient timings, not public Render latency or an answer-accuracy
+score. The small sample does not measure farmer adoption or claim outcomes.
+[Full results](eval/production_benchmark.json) and the
+[unsuccessful first attempt](eval/production_benchmark_first_attempt.json) are retained.
+
+The answer cache is bounded to 128 entries for 300 seconds and isolated by conversation;
+anonymous requests bypass it. Evidence, prompts, language and provider configuration
+are part of the key. Calculations, approvals and live deadline clocks are not cached.
+Requests log latency, physical provider attempts and reported tokens without raw
+questions or credentials. Missing usage remains unknown. Questions are limited to
+2,000 characters and request bodies to 16 KiB. Tested injection patterns, poisoned
+evidence and output leakage are guarded; this is not universal attack prevention.
+See [limits and reproducible commands](docs/production_notes.md).
+
+**Release status:** Day 13 is locally verified. Its GitHub CI and Render rollout must
+be verified after push; the live-release evidence below refers to Day 12.
 
 ## Day 12: CI and live deployment
 
@@ -109,7 +164,7 @@ python -m ruff format --check .
 The launcher starts a matching API/UI pair. Custom ports are supported with
 `python run.py --backend-port 8050 --ui-port 8550`. The current local verification
 uses **http://127.0.0.1:8550**. Tests run offline with fake LLM responses and isolated
-feedback storage. Result: **82 passed**; Ruff lint and formatting pass.
+feedback storage. Day 13 result: **120 passed**; see the verification report.
 
 ## Problem
 Farmers often face difficulty understanding crop insurance guidelines, premium calculations, claim procedures, and statutory deadlines (such as the 72-hour localized calamity intimation window).
@@ -133,7 +188,7 @@ Farmers often face difficulty understanding crop insurance guidelines, premium c
 
 ---
 
-## Current Progress (Days 1–12)
+## Current Progress (Days 1–13)
 - **Day 1**: Python intro (`day01_intro.py`) and interactive menu (`day01_menu.py`).
 - **Day 2**: 20 starter PMFBY records (`data/sample_records.py`), reusable record utilities (`app/records.py`), and terminal CLI (`app/cli.py`).
 - **Day 3**: Official source downloader with manifest (`app/fetch.py`), `Record` dataclass (`app/models.py`), and PDF/HTML ingestion pipeline (`app/ingest.py` -> `data/records.json`).
@@ -146,6 +201,7 @@ Farmers often face difficulty understanding crop insurance guidelines, premium c
 - **Day 10 (Checkpoint 2)**: Streamlit interface, live 72-hour clock, calculation approval, official citations and scoped feedback.
 - **Day 11**: Offline pytest coverage, Ruff lint/format configuration, Dockerfile and Compose services, documented run commands, and English/Marathi/Hindi farmer interface with custom branding and reporting checklist.
 - **Day 12**: Green Ruff/pytest/Docker CI, feature-branch PR #1 merged after checks, and a verified live Render deployment with public health and real Groq answers. Container and Compose startup evidence is retained in CI artifacts.
+- **Day 13**: Request metrics, bounded conversation cache, input limits, injection regression tests, five-pair live benchmark, farmer demo and resume bullets. [Verification and release handoff](docs/day13_verification.md).
 
 ---
 

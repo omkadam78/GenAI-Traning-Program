@@ -5,6 +5,9 @@ import re
 import uuid
 
 from fastapi import FastAPI, HTTPException, Query, Header
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from app.production import ProductionMiddleware, CURRENT_TRACE, annotate_result
 from pydantic import BaseModel, Field
 
 from app.agent_loop import run_agent_loop
@@ -148,17 +151,38 @@ OUT_OF_SCOPE_PATTERNS = (
 app = FastAPI(
     title="FasalBima Sathi API",
     description="PMFBY crop insurance assistant with rule lookup, LLM chat, Chroma RAG, and LangGraph agent.",
-    version="0.11.0",
+    version="0.13.0",
 )
+
+app.add_middleware(ProductionMiddleware)
+
+
+@app.exception_handler(RequestValidationError)
+async def safe_validation_error(request, exc):
+    # Do not echo user text or identifiers in validation error payloads.
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": [
+                {key: error[key] for key in ("loc", "msg", "type") if key in error}
+                for error in exc.errors()
+            ]
+        },
+    )
 
 
 class QuestionRequest(BaseModel):
-    question: str = Field(..., min_length=1, description="Farmer crop insurance question")
+    question: str = Field(
+        ..., min_length=1, max_length=2000, description="Farmer crop insurance question"
+    )
     top_k: int = Field(default=3, ge=1, le=10)
 
 
 class ChatRequest(BaseModel):
-    message: str = Field(..., min_length=1, description="Farmer message or inquiry")
+    thread_id: str | None = Field(default=None, min_length=1, max_length=128)
+    message: str = Field(
+        ..., min_length=1, max_length=2000, description="Farmer message or inquiry"
+    )
     prompt_version: str = Field(
         default="v2",
         pattern="^(v1|v2)$",
@@ -168,22 +192,34 @@ class ChatRequest(BaseModel):
 
 
 class AskRequest(BaseModel):
-    question: str = Field(..., min_length=1, description="Farmer crop insurance question")
+    thread_id: str | None = Field(default=None, min_length=1, max_length=128)
+    question: str = Field(
+        ..., min_length=1, max_length=2000, description="Farmer crop insurance question"
+    )
     top_k: int = Field(default=3, ge=1, le=10)
     prompt_version: str = Field(default="v2", pattern="^(v1|v2)$")
 
 
 class AgentRequest(BaseModel):
     language: Literal["en", "mr", "hi"] = "en"
-    query: str | None = Field(default=None, description="Farmer query or calculation request")
-    thread_id: str | None = Field(default=None, description="Session ID for stateful agent memory")
+    query: str | None = Field(
+        default=None, max_length=2000, description="Farmer query or calculation request"
+    )
+    thread_id: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=128,
+        description="Session ID for stateful agent memory",
+    )
     approved: bool | None = Field(
         default=None, description="Approval flag (true to confirm, false to cancel)"
     )
     calculation_id: str | None = Field(
-        default=None, description="Pending calculation ID to bind approval"
+        default=None, max_length=128, description="Pending calculation ID to bind approval"
     )
-    request_id: str | None = Field(default=None, description="Client request ID for idempotency")
+    request_id: str | None = Field(
+        default=None, max_length=128, description="Client request ID for idempotency"
+    )
     agent_type: str = Field(
         default="langgraph",
         pattern="^(langgraph|handwritten)$",
@@ -198,6 +234,7 @@ class ClaimClockRequest(BaseModel):
     loss_timestamp: str = Field(
         ...,
         min_length=1,
+        max_length=128,
         description="Date/time of calamity (e.g. 'YYYY-MM-DD HH:MM', 'yesterday at 9 pm')",
     )
     window_hours: int = Field(
@@ -206,13 +243,15 @@ class ClaimClockRequest(BaseModel):
 
 
 class FeedbackRequest(BaseModel):
-    thread_id: str = Field(..., min_length=1, description="Conversation session ID")
+    thread_id: str = Field(..., min_length=1, max_length=128, description="Conversation session ID")
     response_id: str | None = Field(default=None, description="Assistant response ID being rated")
-    query: str = Field(..., min_length=1, description="Farmer question")
+    query: str = Field(..., min_length=1, max_length=2000, description="Farmer question")
     rating: str = Field(
         ..., pattern="^(up|down)$", description="Rating: 'up' (thumbs up) or 'down' (thumbs down)"
     )
-    comment: str | None = Field(default=None, description="Optional farmer feedback comment")
+    comment: str | None = Field(
+        default=None, max_length=1000, description="Optional farmer feedback comment"
+    )
 
 
 def _is_personal_status_query(question: str) -> bool:
@@ -250,7 +289,7 @@ def read_record(record_id: int):
 
 @app.get("/search")
 def search_records(
-    q: str = Query(..., min_length=1, description="Search query"),
+    q: str = Query(..., min_length=1, max_length=2000, description="Search query"),
     limit: int = Query(default=5, ge=1, le=50),
 ):
     records = load_records()
@@ -260,7 +299,7 @@ def search_records(
 
 @app.get("/search/semantic")
 def search_semantic(
-    q: str = Query(..., min_length=1, description="Semantic search query"),
+    q: str = Query(..., min_length=1, max_length=2000, description="Semantic search query"),
     limit: int = Query(default=5, ge=1, le=50),
 ):
     """Day 7 endpoint: semantic search over Chroma vectorstore collection."""
@@ -340,16 +379,18 @@ def chat(payload: ChatRequest):
         top_k=payload.top_k,
     )
     response["disclaimer"] = DISCLAIMER
-    return response
+    return annotate_result(response)
 
 
 @app.post("/ask")
 def ask(payload: AskRequest):
     """Day 8 endpoint: answer questions from retrieved chunks with citations; must say 'I don't know' for Q6."""
-    return ask_rag(
-        question=payload.question,
-        top_k=payload.top_k,
-        prompt_version=payload.prompt_version,
+    return annotate_result(
+        ask_rag(
+            question=payload.question,
+            top_k=payload.top_k,
+            prompt_version=payload.prompt_version,
+        )
     )
 
 
@@ -362,15 +403,20 @@ def agent(
     """Day 9 endpoint: PMFBY agent with memory and human-in-the-loop approval step."""
     # 0. Check idempotency if request_id or header is supplied
     req_id = payload.request_id or idempotency_key or x_request_id
+    if req_id and len(req_id) > 128:
+        raise HTTPException(status_code=422, detail="Request ID must not exceed 128 characters.")
     if req_id:
         payload.request_id = req_id
         cached_resp, is_in_flight = _IDEMPOTENCY_MANAGER.check_or_register(req_id, payload)
         if cached_resp is not None:
-            return cached_resp
+            trace = CURRENT_TRACE.get()
+            if trace:
+                trace.cache_status = "IDEMPOTENT"
+            return annotate_result(cached_resp)
         if is_in_flight:
             waited_resp = _IDEMPOTENCY_MANAGER.wait_for_in_flight(req_id, timeout=25.0)
             if waited_resp is not None:
-                return waited_resp
+                return annotate_result(waited_resp)
             raise HTTPException(
                 status_code=503,
                 detail="The original request is still running. Retry with the same request ID.",
@@ -418,7 +464,7 @@ def agent(
             result["agent_type"] = "handwritten"
             if payload.request_id:
                 _IDEMPOTENCY_MANAGER.store_response(payload.request_id, payload, result)
-            return result
+            return annotate_result(result)
         except Exception as err:
             if payload.request_id:
                 _IDEMPOTENCY_MANAGER.release_on_error(payload.request_id)
@@ -436,7 +482,7 @@ def agent(
         result["agent_type"] = "langgraph"
         if payload.request_id:
             _IDEMPOTENCY_MANAGER.store_response(payload.request_id, payload, result)
-        return result
+        return annotate_result(result)
     except Exception as err:
         if payload.request_id:
             _IDEMPOTENCY_MANAGER.release_on_error(payload.request_id)

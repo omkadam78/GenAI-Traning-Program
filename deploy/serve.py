@@ -107,6 +107,7 @@ def main() -> None:
                     "8000",
                     "--root-path",
                     "/api",
+                    "--no-access-log",
                 ],
                 cwd=ROOT,
                 env=env,

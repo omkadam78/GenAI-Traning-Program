@@ -210,6 +210,7 @@ def main() -> int:
                 args.host,
                 "--port",
                 str(args.backend_port),
+                "--no-access-log",
             ]
             print(f"Starting FastAPI backend ({backend_url})...", flush=True)
             backend_proc = subprocess.Popen(backend_cmd, cwd=str(ROOT), env=env)

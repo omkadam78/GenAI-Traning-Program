@@ -10,3 +10,4 @@ data/feedback.jsonl
 data/feedback*.jsonl
 .ruff_cache/
 data/runtime/
+test-results/

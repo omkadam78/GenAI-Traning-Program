@@ -23,6 +23,14 @@ from typing import Any, Optional
 from dotenv import dotenv_values
 import requests
 
+from app.production import (
+    ANSWER_CACHE,
+    answer_cache_key,
+    cached_answer,
+    provider_post,
+    usage_from_body,
+)
+from app.security import context_json, safe_evidence, validate_answer, validate_question
 from app.records import load_records
 from app.smart_search import smart_search
 
@@ -185,24 +193,44 @@ def _call_groq_api(
         "max_completion_tokens": 1200,
         "response_format": {"type": "json_object"},
     }
+    # GPT-OSS supports constrained decoding. Other configured models retain JSON mode.
+    if model in ("openai/gpt-oss-20b", "openai/gpt-oss-120b"):
+        payload["reasoning_effort"] = "low"
+        payload["response_format"] = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "fasalbima_answer",
+                "strict": True,
+                "schema": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "answer": {"type": "string"},
+                        "confidence": {"type": "number"},
+                        "follow_up": {"type": "string"},
+                    },
+                    "required": ["answer", "confidence", "follow_up"],
+                },
+            },
+        }
 
     last_error: Optional[Exception] = None
 
     for attempt in range(max_retries + 1):
         try:
-            resp = requests.post(url, headers=headers, json=payload, timeout=timeout)
+            resp = provider_post("groq", model, url, headers=headers, json=payload, timeout=timeout)
             status = resp.status_code
 
             if status == 200:
                 body = resp.json()
                 raw_text = body["choices"][0]["message"]["content"]
-                usage = body.get("usage", {})
+                usage = usage_from_body(body, "groq")
                 return {
                     "raw_text": raw_text,
                     "usage": {
-                        "prompt_tokens": usage.get("prompt_tokens", 0),
-                        "completion_tokens": usage.get("completion_tokens", 0),
-                        "total_tokens": usage.get("total_tokens", 0),
+                        "prompt_tokens": usage.get("prompt_tokens"),
+                        "completion_tokens": usage.get("completion_tokens"),
+                        "total_tokens": usage.get("total_tokens"),
                     },
                 }
 
@@ -237,7 +265,7 @@ def _call_groq_api(
                 raise LLMError(f"Groq service error (HTTP {status}) after retries.")
 
             # Other non-retryable 4xx
-            raise LLMError(f"Groq API request failed with HTTP {status}: {resp.text}")
+            raise LLMError(f"Groq API request failed with HTTP {status}.")
 
         except requests.exceptions.Timeout:
             last_error = LLMTimeoutError(f"Groq API request timed out after {timeout}s.")
@@ -281,7 +309,7 @@ def _call_gemini_api(
 
     for attempt in range(max_retries + 1):
         try:
-            resp = requests.post(url, json=payload, timeout=timeout)
+            resp = provider_post("gemini", model, url, json=payload, timeout=timeout)
             status = resp.status_code
 
             if status == 200:
@@ -290,13 +318,13 @@ def _call_gemini_api(
                 if not candidates:
                     raise LLMError("No candidates returned by Gemini API.")
                 raw_text = candidates[0]["content"]["parts"][0]["text"]
-                usage_meta = body.get("usageMetadata", {})
+                usage_meta = usage_from_body(body, "gemini")
                 return {
                     "raw_text": raw_text,
                     "usage": {
-                        "prompt_tokens": usage_meta.get("promptTokenCount", 0),
-                        "completion_tokens": usage_meta.get("candidatesTokenCount", 0),
-                        "total_tokens": usage_meta.get("totalTokenCount", 0),
+                        "prompt_tokens": usage_meta.get("prompt_tokens"),
+                        "completion_tokens": usage_meta.get("completion_tokens"),
+                        "total_tokens": usage_meta.get("total_tokens"),
                     },
                 }
 
@@ -307,7 +335,7 @@ def _call_gemini_api(
                         f"Gemini API authentication failed (HTTP {status}): Check GEMINI_API_KEY."
                     )
                 # Other 400 (malformed prompt)
-                raise LLMError(f"Gemini API bad request (HTTP 400): {err_text}")
+                raise LLMError("Gemini API rejected the request (HTTP 400).")
 
             if status == 404:
                 raise LLMModelNotFoundError(
@@ -326,7 +354,7 @@ def _call_gemini_api(
                     )
                 raise LLMError(f"Gemini service error (HTTP {status}) after retries.")
 
-            raise LLMError(f"Gemini request failed with HTTP {status}: {resp.text}")
+            raise LLMError(f"Gemini request failed with HTTP {status}.")
 
         except requests.exceptions.Timeout:
             last_error = LLMTimeoutError(f"Gemini API request timed out after {timeout}s.")
@@ -462,6 +490,16 @@ def _offline_fallback(question: str, matches: list[dict], prompt_version: str) -
     }
 
 
+def _finish_response(result, key, config):
+    validate_answer(
+        result["answer"], [config.get("primary_key", ""), config.get("fallback_key", "")]
+    )
+    result["cache_hit"] = False
+    if key:
+        ANSWER_CACHE.put(key, result)
+    return result
+
+
 def generate_chat_response(
     question: str,
     prompt_version: str = "v2",
@@ -475,6 +513,7 @@ def generate_chat_response(
     If real LLM keys are configured, executes real LLM inference with bounded retries and
     automatic secondary-provider fallback.
     """
+    validate_question(question)
     # Mandatory Rule: Personal claim status queries must refuse with 'I don't know'
     if is_personal_claim_query(question):
         return {
@@ -501,6 +540,7 @@ def generate_chat_response(
         if context_records is not None
         else smart_search(records, question, top_k=top_k)
     )
+    matches = safe_evidence(matches)
     if not matches:
         return {
             "answer": "I don't know. I could not find supporting information in the official documents. Please ask a more specific PMFBY question.",
@@ -524,15 +564,8 @@ def generate_chat_response(
         for m in matches
     ]
 
-    # Format context with anti-injection data boundaries
-    context_lines = []
-    for idx, m in enumerate(matches, 1):
-        context_lines.append(
-            f"[{idx}] Topic: {m.get('rule_topic')} | Version: {m.get('og_version')} | "
-            f"Rate/Timeline: {m.get('deadline_or_rate')} | Text: {m.get('rule_text')}"
-        )
-    raw_context = "\n".join(context_lines) if context_lines else "No direct matching record found."
-    context_str = f"<context_data>\n{raw_context}\n</context_data>"
+    # Documents are data. JSON escaping prevents fake closing context tags.
+    context_str = "<context_data>\n" + context_json(matches) + "\n</context_data>"
 
     # Load prompts
     system_prompt = load_prompt_file(SYSTEM_PROMPT_PATH)
@@ -545,6 +578,12 @@ def generate_chat_response(
 
     config = get_llm_config()
     mode = config["mode"]
+    cache_key = answer_cache_key(
+        question, matches, system_prompt, user_prompt, config, answer_language
+    )
+    cached = cached_answer(cache_key)
+    if cached is not None:
+        return cached
 
     if mode == "offline":
         if not allow_offline_fallback:
@@ -585,50 +624,59 @@ def generate_chat_response(
         latency = (time.perf_counter() - t0) * 1000.0
         parsed = _parse_llm_json(res["raw_text"])
 
-        return {
-            "answer": parsed["answer"],
-            "confidence": parsed["confidence"],
-            "follow_up": parsed["follow_up"],
-            "citations": citations,
-            "prompt_version": prompt_version,
-            "provider": primary_prov,
-            "model": primary_model,
-            "fallback_occurred": False,
-            "latency_ms": round(latency, 1),
-            "usage": res.get("usage", {}),
-        }
+        return _finish_response(
+            {
+                "answer": parsed["answer"],
+                "confidence": parsed["confidence"],
+                "follow_up": parsed["follow_up"],
+                "citations": citations,
+                "prompt_version": prompt_version,
+                "provider": primary_prov,
+                "model": primary_model,
+                "fallback_occurred": False,
+                "latency_ms": round(latency, 1),
+                "usage": res.get("usage", {}),
+            },
+            cache_key,
+            config,
+        )
 
     except Exception as exc:
         primary_error = exc
-        logging.warning("Primary LLM (%s/%s) failed: %s", primary_prov, primary_model, exc)
+        logging.warning(
+            "Primary LLM (%s/%s) failed: %s", primary_prov, primary_model, type(exc).__name__
+        )
 
     # Automatic Secondary Provider Fallback
     if fallback_prov and fallback_key and fallback_model:
         logging.info("Attempting secondary LLM fallback (%s/%s)...", fallback_prov, fallback_model)
-        t_fb = time.perf_counter()
         try:
             if fallback_prov == "groq":
                 res = _call_groq_api(fallback_key, fallback_model, system_prompt, user_prompt)
             else:
                 res = _call_gemini_api(fallback_key, fallback_model, system_prompt, user_prompt)
 
-            latency = (time.perf_counter() - t_fb) * 1000.0
+            latency = (time.perf_counter() - t0) * 1000.0
             parsed = _parse_llm_json(res["raw_text"])
 
-            return {
-                "answer": parsed["answer"],
-                "confidence": parsed["confidence"],
-                "follow_up": parsed["follow_up"],
-                "citations": citations,
-                "prompt_version": prompt_version,
-                "provider": fallback_prov,
-                "model": fallback_model,
-                "fallback_occurred": True,
-                "latency_ms": round(latency, 1),
-                "usage": res.get("usage", {}),
-            }
+            return _finish_response(
+                {
+                    "answer": parsed["answer"],
+                    "confidence": parsed["confidence"],
+                    "follow_up": parsed["follow_up"],
+                    "citations": citations,
+                    "prompt_version": prompt_version,
+                    "provider": fallback_prov,
+                    "model": fallback_model,
+                    "fallback_occurred": True,
+                    "latency_ms": round(latency, 1),
+                    "usage": res.get("usage", {}),
+                },
+                cache_key,
+                config,
+            )
         except Exception as fb_exc:
-            logging.error("Secondary LLM fallback also failed: %s", fb_exc)
+            logging.error("Secondary LLM fallback also failed: %s", type(fb_exc).__name__)
             # Both failed
 
     if not allow_offline_fallback:
@@ -648,6 +696,6 @@ def generate_chat_response(
         "provider": "deterministic-rule-engine",
         "model": "pmfby-offline-v1",
         "fallback_occurred": True,
-        "primary_error": str(primary_error),
+        "primary_error": type(primary_error).__name__,
         "latency_ms": round((time.perf_counter() - t0) * 1000.0, 1),
     }

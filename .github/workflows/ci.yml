@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, 'day-12-*']
+    branches: [main, 'day-12-*', 'day-13-*']
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -39,12 +39,14 @@ jobs:
           python -m ruff format --check .
       - name: Test with fake LLMs; no provider secrets
         run: python -m pytest -q --junitxml=test-results/pytest.xml
+      - name: Reproduce cache and conversation-isolation checks without provider secrets
+        run: python -m eval.production_benchmark --mock --output test-results/cache-benchmark.json
       - name: Save test evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: pytest-results
-          path: test-results/pytest.xml
+          path: test-results/
           if-no-files-found: ignore
 
   container:

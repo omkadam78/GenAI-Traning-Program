@@ -86,7 +86,7 @@ def test_ui_premium_form_creates_backend_approval():
     a.number_input(key="area").set_value(1.2)
     a.number_input(key="finance").set_value(49000.0)
     response = {
-        "answer": "Please confirm the details.",
+        "answer": "Calculation ID calc_test. Submit approved: true or approved: false.",
         "requires_approval": True,
         "pending_calculation": {
             "id": "calc_test",
@@ -107,3 +107,6 @@ def test_ui_premium_form_creates_backend_approval():
     assert not a.exception
     assert a.session_state.pending_approval["id"] == "calc_test"
     assert a.button(key="approve")
+    displayed = " ".join(m.value for m in a.markdown)
+    assert "approved: true" not in displayed and "calc_test" not in displayed
+    assert "Check the details below" in displayed

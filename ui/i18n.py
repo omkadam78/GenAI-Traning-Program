@@ -140,6 +140,10 @@ def translate(text: str, language: str = "en") -> str:
 
 STRINGS.update(
     {
+        "Check the details below, then confirm or cancel the estimate.": (
+            "खालील माहिती तपासा, नंतर अंदाजासाठी संमती द्या किंवा रद्द करा.",
+            "नीचे जानकारी जाँचें, फिर अनुमान की पुष्टि करें या रद्द करें।",
+        ),
         "Your latest estimate": ("तुमचा नवीनतम अंदाज", "आपका नवीनतम अनुमान"),
         "Sum insured": ("विम्याची रक्कम", "बीमित राशि"),
         "Estimated maximum premium": ("हप्त्याचा कमाल अंदाज", "अधिकतम प्रीमियम अनुमान"),
