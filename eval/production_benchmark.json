@@ -1,0 +1,257 @@
+{
+  "mode": "live_groq",
+  "measured_at": "2026-11-21T06:17:25+05:30",
+  "environment": "local FastAPI TestClient; real retrieval; live provider only with --live",
+  "methodology": "Five exact-repeat pairs; distinct request IDs; same conversation within each pair. First retrieval may include cold index/model loading. No end-user adoption or factual-accuracy metric is inferred.",
+  "sample_pairs": 5,
+  "pause_between_cases_seconds": 35.0,
+  "passed_pairs": 5,
+  "median_uncached_client_ms": 1747.7,
+  "median_cached_client_ms": 376.53,
+  "observed_median_latency_reduction_percent": 78.46,
+  "known_uncached_tokens": 12184,
+  "cached_provider_calls": 0,
+  "scope_isolation_passed": true,
+  "cases": [
+    {
+      "case_id": "P1",
+      "question": "What are the farmer premium rates under PMFBY?",
+      "uncached": {
+        "http_status": 200,
+        "client_ms": 2209.86,
+        "metrics": {
+          "request_id": "1cd3348c0633481db0d928ea62425597",
+          "processing_ms": 2179.56,
+          "llm_calls": 1,
+          "llm_failures": 0,
+          "usage_complete": true,
+          "unknown_usage_calls": 0,
+          "prompt_tokens": 2423,
+          "completion_tokens": 232,
+          "total_tokens": 2655,
+          "known_total_tokens": 2655,
+          "cache_status": "MISS",
+          "cache_hits": 0
+        },
+        "provider": "groq",
+        "model": "openai/gpt-oss-20b",
+        "citations": 6
+      },
+      "cached": {
+        "http_status": 200,
+        "client_ms": 333.52,
+        "metrics": {
+          "request_id": "994a7313ab8143c59cc0a84e301dbcc5",
+          "processing_ms": 324.32,
+          "llm_calls": 0,
+          "llm_failures": 0,
+          "usage_complete": true,
+          "unknown_usage_calls": 0,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "total_tokens": 0,
+          "known_total_tokens": 0,
+          "cache_status": "HIT",
+          "cache_hits": 1
+        },
+        "provider": "groq",
+        "model": "openai/gpt-oss-20b",
+        "citations": 6
+      },
+      "same_answer": true,
+      "passed": true
+    },
+    {
+      "case_id": "P2",
+      "question": "What losses are covered by PMFBY?",
+      "uncached": {
+        "http_status": 200,
+        "client_ms": 2218.59,
+        "metrics": {
+          "request_id": "998413d063fb4ec987796cbeaf38cf00",
+          "processing_ms": 2205.05,
+          "llm_calls": 1,
+          "llm_failures": 0,
+          "usage_complete": true,
+          "unknown_usage_calls": 0,
+          "prompt_tokens": 2193,
+          "completion_tokens": 223,
+          "total_tokens": 2416,
+          "known_total_tokens": 2416,
+          "cache_status": "MISS",
+          "cache_hits": 0
+        },
+        "provider": "groq",
+        "model": "openai/gpt-oss-20b",
+        "citations": 5
+      },
+      "cached": {
+        "http_status": 200,
+        "client_ms": 357.57,
+        "metrics": {
+          "request_id": "40e525eb06d5408cade481d533544eee",
+          "processing_ms": 346.86,
+          "llm_calls": 0,
+          "llm_failures": 0,
+          "usage_complete": true,
+          "unknown_usage_calls": 0,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "total_tokens": 0,
+          "known_total_tokens": 0,
+          "cache_status": "HIT",
+          "cache_hits": 1
+        },
+        "provider": "groq",
+        "model": "openai/gpt-oss-20b",
+        "citations": 5
+      },
+      "same_answer": true,
+      "passed": true
+    },
+    {
+      "case_id": "P3",
+      "question": "How do I report localized hailstorm damage under PMFBY?",
+      "uncached": {
+        "http_status": 200,
+        "client_ms": 1645.07,
+        "metrics": {
+          "request_id": "547968d860f0476380b5e7058754e812",
+          "processing_ms": 1632.18,
+          "llm_calls": 1,
+          "llm_failures": 0,
+          "usage_complete": true,
+          "unknown_usage_calls": 0,
+          "prompt_tokens": 2184,
+          "completion_tokens": 159,
+          "total_tokens": 2343,
+          "known_total_tokens": 2343,
+          "cache_status": "MISS",
+          "cache_hits": 0
+        },
+        "provider": "groq",
+        "model": "openai/gpt-oss-20b",
+        "citations": 5
+      },
+      "cached": {
+        "http_status": 200,
+        "client_ms": 376.53,
+        "metrics": {
+          "request_id": "c40fcd151e9f47f6a1ea37b0d6ef1dd3",
+          "processing_ms": 366.82,
+          "llm_calls": 0,
+          "llm_failures": 0,
+          "usage_complete": true,
+          "unknown_usage_calls": 0,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "total_tokens": 0,
+          "known_total_tokens": 0,
+          "cache_status": "HIT",
+          "cache_hits": 1
+        },
+        "provider": "groq",
+        "model": "openai/gpt-oss-20b",
+        "citations": 5
+      },
+      "same_answer": true,
+      "passed": true
+    },
+    {
+      "case_id": "P4",
+      "question": "What is the post-harvest coverage window under PMFBY?",
+      "uncached": {
+        "http_status": 200,
+        "client_ms": 1747.7,
+        "metrics": {
+          "request_id": "fd0843ab1534466699809e01ad7cd39c",
+          "processing_ms": 1732.24,
+          "llm_calls": 1,
+          "llm_failures": 0,
+          "usage_complete": true,
+          "unknown_usage_calls": 0,
+          "prompt_tokens": 2298,
+          "completion_tokens": 123,
+          "total_tokens": 2421,
+          "known_total_tokens": 2421,
+          "cache_status": "MISS",
+          "cache_hits": 0
+        },
+        "provider": "groq",
+        "model": "openai/gpt-oss-20b",
+        "citations": 5
+      },
+      "cached": {
+        "http_status": 200,
+        "client_ms": 623.93,
+        "metrics": {
+          "request_id": "2c5c0563e55449cc8acbea6dd5e8fac0",
+          "processing_ms": 613.55,
+          "llm_calls": 0,
+          "llm_failures": 0,
+          "usage_complete": true,
+          "unknown_usage_calls": 0,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "total_tokens": 0,
+          "known_total_tokens": 0,
+          "cache_status": "HIT",
+          "cache_hits": 1
+        },
+        "provider": "groq",
+        "model": "openai/gpt-oss-20b",
+        "citations": 5
+      },
+      "same_answer": true,
+      "passed": true
+    },
+    {
+      "case_id": "P5",
+      "question": "Is enrolment in PMFBY voluntary?",
+      "uncached": {
+        "http_status": 200,
+        "client_ms": 1621.07,
+        "metrics": {
+          "request_id": "9a8b2deea5b2402697b9c07fcbd81653",
+          "processing_ms": 1607.56,
+          "llm_calls": 1,
+          "llm_failures": 0,
+          "usage_complete": true,
+          "unknown_usage_calls": 0,
+          "prompt_tokens": 2223,
+          "completion_tokens": 126,
+          "total_tokens": 2349,
+          "known_total_tokens": 2349,
+          "cache_status": "MISS",
+          "cache_hits": 0
+        },
+        "provider": "groq",
+        "model": "openai/gpt-oss-20b",
+        "citations": 5
+      },
+      "cached": {
+        "http_status": 200,
+        "client_ms": 384.06,
+        "metrics": {
+          "request_id": "3d17e92f8e354327ade0e7b347f2f7dd",
+          "processing_ms": 370.82,
+          "llm_calls": 0,
+          "llm_failures": 0,
+          "usage_complete": true,
+          "unknown_usage_calls": 0,
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "total_tokens": 0,
+          "known_total_tokens": 0,
+          "cache_status": "HIT",
+          "cache_hits": 1
+        },
+        "provider": "groq",
+        "model": "openai/gpt-oss-20b",
+        "citations": 5
+      },
+      "same_answer": true,
+      "passed": true
+    }
+  ]
+}

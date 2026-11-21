@@ -7,6 +7,8 @@ import unicodedata
 
 from app.llm import LLMError, _call_gemini_api, _call_groq_api, _parse_llm_json, get_llm_config
 
+from app.security import validate_question
+
 LANGUAGES = {"en": "English", "mr": "Marathi", "hi": "Hindi"}
 
 
@@ -17,6 +19,7 @@ def numeric_facts(text: str) -> list[str]:
 
 def prepare_query(question: str | None) -> str | None:
     """Translate Devanagari input for English retrieval; refuse changed numeric facts."""
+    validate_question(question)
     if not question or not re.search(r"[\u0900-\u097f]", question):
         return question
     config = get_llm_config()

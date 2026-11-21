@@ -5,6 +5,7 @@ from typing import Any
 
 from app.llm import generate_chat_response, is_personal_claim_query
 from app.vectorstore import query_semantic
+from app.security import safe_evidence
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -48,7 +49,7 @@ def ask_rag(
 
     # Minimum relevance score threshold to prevent hallucination on irrelevant queries
     EVIDENCE_THRESHOLD = 0.25
-    valid_chunks = [c for c in chunks if c.get("score", 0.0) >= EVIDENCE_THRESHOLD]
+    valid_chunks = safe_evidence([c for c in chunks if c.get("score", 0.0) >= EVIDENCE_THRESHOLD])
 
     if not valid_chunks:
         return {

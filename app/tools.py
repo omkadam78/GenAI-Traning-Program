@@ -630,7 +630,9 @@ def pmfby_knowledge_search(
         }
         for r in selected
     ]
-    hits = provisions + hits
+    from app.security import safe_evidence
+
+    hits = safe_evidence(provisions + hits)
     return {
         "query": query,
         "count": len(hits),
