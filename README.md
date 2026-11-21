@@ -66,8 +66,7 @@ questions or credentials. Missing usage remains unknown. Questions are limited t
 evidence and output leakage are guarded; this is not universal attack prevention.
 See [limits and reproducible commands](docs/production_notes.md).
 
-**Release status:** Day 13 is locally verified. Its GitHub CI and Render rollout must
-be verified after push; the live-release evidence below refers to Day 12.
+**Release status:** Verified live on Render on 21 November 2026. Merged via [PR #2](https://github.com/omkadam78/GenAI-Traning-Program/pull/2), validated by [main CI](https://github.com/omkadam78/GenAI-Traning-Program/actions/runs/44867204315), and auto-deployed to [https://fasalbima-sathi.onrender.com](https://fasalbima-sathi.onrender.com). Live verification confirmed public health with request metrics, WebSocket streaming, input limits (413/422), mandatory claim-status refusal, conversation-scoped caching (first MISS, second HIT with 0 provider calls, scope isolation), real Groq synthesis with official citations, and human-in-the-loop Python premium calculation and approval.
 
 ## Day 12: CI and live deployment
 

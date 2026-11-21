@@ -17,8 +17,18 @@ Ruff lint and format checks pass (47 Python files formatted). Docker Compose
 configuration validation passes using `.env.example`. The synthetic CI benchmark
 also passes all five repeat pairs and the conversation isolation check.
 
-GitHub/Render status: this Day 13 update has not yet been pushed or deployed by
-Codex. Antigravity must publish a `day-13:` commit, obtain green CI (including real
-Docker smoke checks), merge, and verify the resulting Render release. Existing
-Day 12 CI evidence must not be presented as validation of the Day 13 container.
-Docker is unavailable on this Windows machine. No star or reviewer rating is claimed.
+GitHub/Render status: Day 13 release completed and verified live on Render on 21 November 2026.
+- Pull request: [PR #2](https://github.com/omkadam78/GenAI-Traning-Program/pull/2)
+- Feature commit: `c4f168d`
+- PR CI run: [CI Run #44866833713](https://github.com/omkadam78/GenAI-Traning-Program/actions/runs/44866833713) (passed: Ruff, pytest, Docker build and smoke)
+- Merge commit: `92bc6c8`
+- Main branch CI run: [CI Run #44867204315](https://github.com/omkadam78/GenAI-Traning-Program/actions/runs/44867204315) (passed: Ruff, pytest, Docker build and smoke)
+- Live Render deployment: auto-deployed on check passage to https://fasalbima-sathi.onrender.com
+- Live verification results:
+  - Public health (`/health`): 200 OK with `ProductionMiddleware` metrics headers (`x-cache`, `x-request-id`, `x-llm-calls`, `server-timing`)
+  - Streamlit UI and WebSocket connection: 101 Switching Protocols verified via RFC6455 handshake
+  - Input limits: >2,000 char question returned 422, >16 KiB body returned 413
+  - Personal claim-status refusal: Q6 returned standard out-of-scope refusal
+  - Bounded caching & Groq synthesis: First request MISS (1 LLM call, 3 citations, 1,956 tokens); repeated request with distinct request ID in same thread was HIT (0 LLM calls, 0 tokens); separate thread was MISS (scope isolation verified)
+  - Financial calculation & human-in-the-loop approval: Soybean Kharif 2 ha calculation paused at approval gate; resumed on approval with Python tool execution (Sum Insured ₹58,800.00, Farmer Share ₹1,176.00)
+The training tracker was NOT updated: write permission was denied. No star or reviewer rating is claimed.
