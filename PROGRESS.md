@@ -21,9 +21,9 @@ Owner: Om Kiran Kadam · 2124UDSM2013. Updated 22 November 2026.
 - [x] Root README benchmark command and final handoff navigation.
 - [x] Correct stale production release wording; distinguish historical proof from current checks.
 - [x] Fresh validation and two automated product demo rounds recorded in `docs/day14_verification.md` (120 tests and 19 UI transitions; public smoke passed).
-- [ ] Commit/publish Day 14, obtain green CI, then create and push `final` at the verified commit.
+- [x] Commit/publish Day 14, obtain green CI, then create and push `final` at the verified commit ([PR #3](https://github.com/omkadam78/GenAI-Traning-Program/pull/3), merge `887ae74`, [main CI #45003212606](https://github.com/omkadam78/GenAI-Traning-Program/actions/runs/45003212606)).
 
-These two release checkboxes are pending until verified; they must not be ticked merely
+The release checklist is complete through Day 14 verified Git publication. Human rehearsal and Day 15 viva remain separate; they must not be ticked merely
 because the files exist. There are no intentionally hidden mandatory coding tasks.
 
 ## Human-owned final preparation

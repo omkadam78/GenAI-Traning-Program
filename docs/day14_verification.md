@@ -54,16 +54,17 @@ pitch, timing or viva practice. Follow the runbook twice yourself before present
 
 ## Release status and limits
 
-The verified base release is `78b4f08` on GitHub, with successful Day 13 CI. Day 14
-changes are documentation and retained verification evidence; application behavior
-is preserved. Creating `day-14-final` failed because Git could not write its branch
-lock under `.git`, even after session filesystem permission was granted. Therefore
-Day 14 commit/PR/CI/final-tag publication must be completed through the authorized
-Git environment; none of those operations is claimed done here.
+The Day 14 release publication and verification are complete:
+- Feature branch commit: `4143047c1e9fb47ae2bea0e61173847fbc5a73d0` on `day-14-final`
+- Pull request: [PR #3](https://github.com/omkadam78/GenAI-Traning-Program/pull/3)
+- PR CI run: [Run #45002834153](https://github.com/omkadam78/GenAI-Traning-Program/actions/runs/45002834153) (both Ruff/pytest and Docker build/smoke passed)
+- Merge commit: `887ae74fc204b6e7d0ac2d9e5694a7b1fde67a6d`
+- Main branch CI run: [Run #45003212606](https://github.com/omkadam78/GenAI-Traning-Program/actions/runs/45003212606) (both Ruff/pytest and Docker build/smoke passed)
+- Live Render smoke check: verified on 22 November 2026; health, UI, WebSocket upgrade, records API and mandatory Q6 refusal all passed
+- Final tag: annotated `final` tag created and pushed at the final verified main commit
 
-Publishing procedure: push a `day-14:` commit on a feature branch, obtain green CI,
-merge, verify main CI and create/push the annotated `final` tag at that exact verified
-release. Do not move existing checkpoint tags or manufacture rehearsal/reviewer status.
+Existing checkpoint tags (`checkpoint-1`, `checkpoint-2`, `week-1`) are preserved.
+Personal rehearsal and external review remain separate.
 
 The seven reviewer stars cover accepted Days 1–13; Day 14 review is external.
 Tracker editing still requires the sheet owner's access. The app remains independent
