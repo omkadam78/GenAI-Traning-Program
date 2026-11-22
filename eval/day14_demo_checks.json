@@ -1,0 +1,173 @@
+{
+  "measured_at": "2026-11-22T13:39:22.367635+05:30",
+  "mode": "real local Streamlit agent API + real FastAPI; two automated product demo rounds, not personal rehearsal",
+  "passed": true,
+  "steps": [
+    {
+      "step": "round1-reset",
+      "elapsed_ms": 144.6,
+      "status": "ready",
+      "metrics": [],
+      "ui_errors": []
+    },
+    {
+      "step": "round1-estimate",
+      "elapsed_ms": 60.44,
+      "status": "ready",
+      "metrics": [],
+      "ui_errors": []
+    },
+    {
+      "step": "review",
+      "elapsed_ms": 167.29,
+      "status": "ready",
+      "metrics": [],
+      "ui_errors": []
+    },
+    {
+      "step": "round1-confirm",
+      "elapsed_ms": 169.31,
+      "status": "ready",
+      "metrics": [
+        {
+          "label": "Sum insured",
+          "value": "₹58,800.00",
+          "label_visibility": "visible"
+        },
+        {
+          "label": "Estimated maximum premium",
+          "value": "₹1,176.00",
+          "label_visibility": "visible"
+        }
+      ],
+      "ui_errors": []
+    },
+    {
+      "step": "round1-report",
+      "elapsed_ms": 1510.97,
+      "status": "ready",
+      "metrics": [],
+      "ui_errors": []
+    },
+    {
+      "step": "round1-clock",
+      "elapsed_ms": 732.04,
+      "status": "ready",
+      "metrics": [
+        {
+          "label": "Time left to report",
+          "value": "43h 20m 48s",
+          "label_visibility": "visible"
+        }
+      ],
+      "ui_errors": []
+    },
+    {
+      "step": "round1-chat",
+      "elapsed_ms": 107.92,
+      "status": "ready",
+      "metrics": [],
+      "ui_errors": []
+    },
+    {
+      "step": "round1-refusal",
+      "elapsed_ms": 162.87,
+      "status": "ready",
+      "metrics": [],
+      "ui_errors": []
+    },
+    {
+      "step": "round1-knowledge",
+      "elapsed_ms": 9088.49,
+      "status": "ready",
+      "metrics": [],
+      "ui_errors": [],
+      "official_links": [
+        "https://pmfby.gov.in/",
+        "https://pmfby.gov.in/pdf/Revamped%20OGs_Final.pdf",
+        "https://pmfby.gov.in/pdf/Revised_Operational_Guidelines.pdf#page=18",
+        "https://pmfby.gov.in/pdf/Revised_Operational_Guidelines.pdf#page=71",
+        "https://pmfby.gov.in/pdf/Revised_Operational_Guidelines.pdf#page=10"
+      ]
+    },
+    {
+      "step": "round2-reset",
+      "elapsed_ms": 86.54,
+      "status": "ready",
+      "metrics": [],
+      "ui_errors": []
+    },
+    {
+      "step": "round2-estimate",
+      "elapsed_ms": 85.67,
+      "status": "ready",
+      "metrics": [],
+      "ui_errors": []
+    },
+    {
+      "step": "review",
+      "elapsed_ms": 201.04,
+      "status": "ready",
+      "metrics": [],
+      "ui_errors": []
+    },
+    {
+      "step": "round2-cancel",
+      "elapsed_ms": 141.21,
+      "status": "ready",
+      "metrics": [],
+      "ui_errors": []
+    },
+    {
+      "step": "review",
+      "elapsed_ms": 178.74,
+      "status": "ready",
+      "metrics": [],
+      "ui_errors": []
+    },
+    {
+      "step": "round2-confirm",
+      "elapsed_ms": 167.33,
+      "status": "ready",
+      "metrics": [
+        {
+          "label": "Sum insured",
+          "value": "₹98,000.00",
+          "label_visibility": "visible"
+        },
+        {
+          "label": "Estimated maximum premium",
+          "value": "₹1,960.00",
+          "label_visibility": "visible"
+        }
+      ],
+      "ui_errors": []
+    },
+    {
+      "step": "round2-chat",
+      "elapsed_ms": 84.81,
+      "status": "ready",
+      "metrics": [],
+      "ui_errors": []
+    },
+    {
+      "step": "round2-injection",
+      "elapsed_ms": 170.37,
+      "status": "ready",
+      "metrics": [],
+      "ui_errors": [],
+      "rejected_http_status": 422,
+      "llm_calls": 0,
+      "ui_warning": "We could not complete this request. Please try again."
+    },
+    {
+      "step": "round2-recover",
+      "status": "ready"
+    },
+    {
+      "step": "round2-marathi",
+      "status": "ready"
+    }
+  ],
+  "harness_note": "The initial harness looked for an error element; this UI intentionally renders rejected API requests as a warning. Verified warning + HTTP 422 + zero provider calls, then reset and Marathi recovery. No app-code change was needed."
+}

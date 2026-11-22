@@ -15,6 +15,18 @@ pinned: false
 Crop insurance guidance farmers can understand: ask in English, Marathi or Hindi,
 review a premium estimate, and prepare to report crop loss using official PMFBY sources.
 
+## Final handoff — Day 14
+
+Built by **Om Kiran Kadam · 2124UDSM2013**.
+[Interview and 60-second pitch](docs/interview.md) · [Five-minute demo and recovery](docs/demo_runbook.md)
+· [Project map](docs/project_map.md) · [Release checklist](PROGRESS.md)
+· [Final verification](docs/day14_verification.md)
+
+The training implementation and public Day 13 release are complete. Day 14 adds
+interview preparation and release verification; `PROGRESS.md` records publication,
+personal rehearsal and external review separately. The app explains rules and prepares
+estimates/reporting notes; it does not buy insurance, submit claims or access claim status.
+
 ## Day 13: production safeguards and measured results
 
 [Watch the narrated farmer demo on Google Drive](https://drive.google.com/file/d/1SqBRUVHGCP8iX5eNJeH-B5WiEgFAyB5a/view)
@@ -65,6 +77,21 @@ questions or credentials. Missing usage remains unknown. Questions are limited t
 2,000 characters and request bodies to 16 KiB. Tested injection patterns, poisoned
 evidence and output leakage are guarded; this is not universal attack prevention.
 See [limits and reproducible commands](docs/production_notes.md).
+
+Reproduce the benchmark from the project root (no provider key needed):
+
+```powershell
+python -m eval.production_benchmark --mock --output test-results/cache-benchmark.json
+```
+
+For a fresh **live Groq** sample on Demo Day, keep the real key in your ignored
+`.env` and run the following. It consumes quota and takes several minutes with
+pacing; the timings are local TestClient measurements. Save a new report rather
+than overwriting the original five-pair evidence:
+
+```powershell
+python -m eval.production_benchmark --live --env-file .env --output test-results/demo-day-live-benchmark.json
+```
 
 **Release status:** Verified live on Render on 21 November 2026. Merged via [PR #2](https://github.com/omkadam78/GenAI-Traning-Program/pull/2), validated by [main CI](https://github.com/omkadam78/GenAI-Traning-Program/actions/runs/44867204315), and auto-deployed to [https://fasalbima-sathi.onrender.com](https://fasalbima-sathi.onrender.com). Live verification confirmed public health with request metrics, WebSocket streaming, input limits (413/422), mandatory claim-status refusal, conversation-scoped caching (first MISS, second HIT with 0 provider calls, scope isolation), real Groq synthesis with official citations, and human-in-the-loop Python premium calculation and approval.
 
@@ -187,7 +214,7 @@ Farmers often face difficulty understanding crop insurance guidelines, premium c
 
 ---
 
-## Current Progress (Days 1–13)
+## Current Progress (Days 1–14)
 - **Day 1**: Python intro (`day01_intro.py`) and interactive menu (`day01_menu.py`).
 - **Day 2**: 20 starter PMFBY records (`data/sample_records.py`), reusable record utilities (`app/records.py`), and terminal CLI (`app/cli.py`).
 - **Day 3**: Official source downloader with manifest (`app/fetch.py`), `Record` dataclass (`app/models.py`), and PDF/HTML ingestion pipeline (`app/ingest.py` -> `data/records.json`).
@@ -201,6 +228,7 @@ Farmers often face difficulty understanding crop insurance guidelines, premium c
 - **Day 11**: Offline pytest coverage, Ruff lint/format configuration, Dockerfile and Compose services, documented run commands, and English/Marathi/Hindi farmer interface with custom branding and reporting checklist.
 - **Day 12**: Green Ruff/pytest/Docker CI, feature-branch PR #1 merged after checks, and a verified live Render deployment with public health and real Groq answers. Container and Compose startup evidence is retained in CI artifacts.
 - **Day 13**: Request metrics, bounded conversation cache, input limits, injection regression tests, five-pair live benchmark, farmer demo and resume bullets. [Verification and release handoff](docs/day13_verification.md).
+- **Day 14**: Interview pitch and ten technical answers, evidence-backed failure stories, project map, timed demo/recovery runbook and final release checklist. [Current verification](docs/day14_verification.md); personal rehearsals and Day 15 viva are recorded separately.
 
 ---
 
@@ -215,7 +243,7 @@ a connection failure is shown clearly without switching to a hidden local engine
 
 ---
 
-## Day 9: Agent Architecture & Accuracy Guarantees
+## Day 9: Agent architecture and validation
 
 ### 1. Pure Arithmetic Premium Tool (`app/tools.py`)
 - **Sum Insured**: $\text{Scale of Finance} \times \text{Insured Area}$.
