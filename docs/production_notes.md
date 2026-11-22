@@ -1,8 +1,10 @@
 # Production notes — Day 13
 
-Measured on 21 November 2026. Day 13 code is locally verified; public deployment
-must be verified after the GitHub handoff. The previously verified public release
-is Day 12. These measurements are not Render network latency or an accuracy score.
+Measured on 21 November 2026. Day 13 was merged via PR #2 and its main CI passed;
+the public deployment was verified on 21 November. See `docs/day13_verification.md`
+for that historical evidence and `docs/day14_verification.md` for fresh release
+checks. These local benchmark measurements are not Render network latency or an
+accuracy score. A past successful deployment is not a guarantee of current uptime.
 
 ## Reproducible measurements
 
@@ -11,10 +13,12 @@ runs a deterministic regression benchmark without secrets; CI retains its artifa
 For a real measurement, configure Groq privately and run:
 
 ```powershell
-python -m eval.production_benchmark --live --output eval/production_benchmark.json
+python -m eval.production_benchmark --live --env-file .env --output test-results/demo-day-live-benchmark.json
 ```
 
-The retained live report uses local FastAPI TestClient, real retrieval and Groq
+Keep provider credentials in ignored `.env`; the command does not print them.
+The new output path preserves the retained original report. The retained report
+uses local FastAPI TestClient, real retrieval and Groq
 `openai/gpt-oss-20b`. Five public PMFBY questions each have an initial request and
 an exact repeat in the same conversation, with distinct request IDs. This tests
 answer caching, not idempotency replay. A separate conversation must miss.

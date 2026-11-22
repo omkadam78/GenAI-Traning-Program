@@ -32,3 +32,11 @@ GitHub/Render status: Day 13 release completed and verified live on Render on 21
   - Bounded caching & Groq synthesis: First request MISS (1 LLM call, 3 citations, 1,956 tokens); repeated request with distinct request ID in same thread was HIT (0 LLM calls, 0 tokens); separate thread was MISS (scope isolation verified)
   - Financial calculation & human-in-the-loop approval: Soybean Kharif 2 ha calculation paused at approval gate; resumed on approval with Python tool execution (Sum Insured ₹58,800.00, Farmer Share ₹1,176.00)
 The training tracker was NOT updated: write permission was denied. No star or reviewer rating is claimed.
+
+Day 14 audit note (22 November): the historical live calculation line above did not
+retain its full finance input, so it cannot establish the rate/unit combination by
+itself. The reproducible regression/demo uses **1.2 ha × ₹49,000/ha = ₹58,800**, with
+a 2% estimated maximum share of **₹1,176**. A 2 ha input at that same finance rate
+would instead give ₹98,000 and ₹1,960. See the fresh verification report; do not
+reuse the earlier incomplete example as arithmetic proof. The reviewer has since
+accepted Day 13 as exceptional work; this report's original release status is historical.

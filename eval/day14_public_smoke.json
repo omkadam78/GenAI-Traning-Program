@@ -1,0 +1,7 @@
+{
+  "health": "passed",
+  "ui": "passed",
+  "websocket": "passed",
+  "api": "passed",
+  "q6_refusal": "passed"
+}
