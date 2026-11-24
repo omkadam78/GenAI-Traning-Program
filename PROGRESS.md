@@ -1,6 +1,6 @@
 # FasalBima Sathi — release closeout
 
-Owner: Om Kiran Kadam · 2124UDSM2013. Updated 22 November 2026.
+Owner: Om Kiran Kadam · 2124UDSM2013. Updated 24 November 2026.
 
 ## Training implementation
 
@@ -26,18 +26,20 @@ Owner: Om Kiran Kadam · 2124UDSM2013. Updated 22 November 2026.
 The release checklist is complete through Day 14 verified Git publication. Human rehearsal and Day 15 viva remain separate; they must not be ticked merely
 because the files exist. There are no intentionally hidden mandatory coding tasks.
 
-## Human-owned final preparation
+## Day 14 follow-up: engineering defense
 
-- [ ] Read the pitch aloud and personally rehearse both demo rounds; record real timings/corrections.
-- [ ] Complete the Day 15 test, five-minute live demo and three-minute Q&A.
+- [x] Code-linked decision analysis, alternative designs, failure boundaries and reproducible commands in `docs/engineering_defense.md`.
+- [x] Stored evaluation failure analysis separates retrieval support, answer checks and citation metadata.
+- [x] Personal rehearsal and future Day 15 participation tracked separately in `docs/presentation_preparation.md`; neither is claimed completed.
 
-An automated demo run is product verification, not proof that the student rehearsed.
+The original final release tag remains unchanged. Follow-up publication and fresh
+validation status are recorded in `docs/day14_followup_verification.md`.
 
 ## External/admin items
 
 - Tracker Projects column V (live URL) and W (demo video): an authorized sheet editor
   must confirm/update them. The previous write was denied; no editor status is claimed.
-- Reviewer Day 14 result: external decision after the submitted work is reviewed.
+- Reviewer artifact on 24 November: D14 OK; all 14 days OK, seven total stars. Additional recognition is the reviewer's decision.
 
 ## Explicit future product backlog — outside the training release
 

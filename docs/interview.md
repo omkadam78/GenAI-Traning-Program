@@ -2,6 +2,14 @@
 
 Owner: Om Kiran Kadam · 2124UDSM2013. Prepared 22 November 2026.
 
+## Technical defense and reading routes
+
+For code-level follow-ups, read [Engineering defense](engineering_defense.md):
+request sequence, approval failure matrix, cache versus idempotency, design
+alternatives, stored evaluation error analysis, threat model and offline commands.
+It supplements the ten answers below with evidence rather than adding unverified
+features. Personal practice status is in [Presentation preparation](presentation_preparation.md).
+
 ## My 60-second pitch
 
 FasalBima Sathi helps farmers understand crop insurance without having to read long
@@ -159,5 +167,5 @@ I must not say that a specific fix conclusively caused the improvement. The meas
 ## Preparation record
 
 Read this aloud, run the two demo rounds in `docs/demo_runbook.md`, and record the
-actual times and corrections in `PROGRESS.md`. Interview readiness requires your
+actual times and corrections in `docs/presentation_preparation.md`. Interview readiness requires your
 explanation and practice; a generated document cannot substitute for that.
