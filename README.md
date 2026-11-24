@@ -21,10 +21,13 @@ Built by **Om Kiran Kadam · 2124UDSM2013**.
 [Interview and 60-second pitch](docs/interview.md) · [Five-minute demo and recovery](docs/demo_runbook.md)
 · [Project map](docs/project_map.md) · [Release checklist](PROGRESS.md)
 · [Final verification](docs/day14_verification.md)
+· [Engineering defense and evidence](docs/engineering_defense.md)
+· [Follow-up verification](docs/day14_followup_verification.md)
 
-The training implementation and public Day 13 release are complete. Day 14 adds
-interview preparation and release verification; `PROGRESS.md` records publication,
-personal rehearsal and external review separately. The app explains rules and prepares
+The Day 14 implementation and tagged release are complete. The 24 November
+follow-up adds a code-linked engineering defense and stored evaluation error
+analysis. `PROGRESS.md` tracks implementation; personal rehearsal and Day 15
+participation are tracked separately in `docs/presentation_preparation.md`. The app explains rules and prepares
 estimates/reporting notes; it does not buy insurance, submit claims or access claim status.
 
 ## Day 13: production safeguards and measured results

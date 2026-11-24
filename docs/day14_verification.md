@@ -11,7 +11,7 @@ Owner: Om Kiran Kadam · 2124UDSM2013 · FasalBima Sathi.
 | Structured closeout | Root `PROGRESS.md` distinguishes implementation, publication, personal practice and external review |
 | Demo preparation | `docs/demo_runbook.md`: timed five-minute script, two rounds, recovery table and viva prompts |
 | Reproducible benchmark command in README | Both synthetic and optional live commands are now in root README; new outputs preserve the original live report |
-| Final release tag | Pending authorized Git publication; do not claim the tag exists until pushed and verified |
+| Final release tag | Published: annotated `final` at `edde3cc1b99fb309c63ec73032ba94e69688b3f8`; follow-up changes do not move it |
 
 ## Fresh validation
 
@@ -66,7 +66,7 @@ The Day 14 release publication and verification are complete:
 Existing checkpoint tags (`checkpoint-1`, `checkpoint-2`, `week-1`) are preserved.
 Personal rehearsal and external review remain separate.
 
-The seven reviewer stars cover accepted Days 1–13; Day 14 review is external.
+The 24 November reviewer update marks D14 OK, all 14 days OK, and seven total stars.
 Tracker editing still requires the sheet owner's access. The app remains independent
 guidance, with historical-rule freshness and free-host persistence limits documented
 in `docs/production_notes.md` and `PROGRESS.md`. The separate Android experiment is
