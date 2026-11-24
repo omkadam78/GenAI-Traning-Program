@@ -40,7 +40,10 @@ test invocation, not application behavior. No tests are deleted or skipped.
 
 ## Publication
 
-The GitHub connector rejected branch creation with HTTP 403, "Resource not
-accessible by integration". Local follow-up files therefore require an authorized
-Git push/PR before the reviewer can see them. No remote publication or CI success
-is claimed for this follow-up. The existing annotated `final` tag remains unchanged.
+The Day 14 follow-up publication and verification are complete:
+- Feature branch: `day-14-engineering-defense` (commit `563185d842c36e0cb4c66c04e65434aa6e60d207`)
+- Pull request: [PR #4: day-14: technical engineering defense, presentation preparation, and follow-up verification](https://github.com/omkadam78/GenAI-Traning-Program/pull/4)
+- PR CI run: [Run #45330087955](https://github.com/omkadam78/GenAI-Traning-Program/actions/runs/45330087955) (both Ruff/pytest and Docker build/smoke passed)
+- Merge commit: `2055720f439dd2984ed1a6bcf3c3cb73e87c2f95`
+- Main branch CI run: [Run #45330584999](https://github.com/omkadam78/GenAI-Traning-Program/actions/runs/45330584999) (both Ruff/pytest and Docker build/smoke passed)
+- The original annotated `final` tag remains preserved at `edde3cc1b99fb309c63ec73032ba94e69688b3f8`.
